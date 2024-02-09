@@ -1,6 +1,8 @@
 import librosa
 import numpy as np
 from fastdtw import fastdtw
+from scipy.spatial.distance import euclidean
+from dtw import dtw
 
 class MFCC:
     def __init__(self, fileName) -> None:
@@ -66,25 +68,63 @@ class Compare:
         # вероятно здесь будет какая-то сущность связанная с бд
     
     def crossValidation(self, referenceFrames, userFrames):
+        """
+        примем пока что они плюс минус равны по размеру
+        """
+        # x = np.array([2, 0, 1, 1, 2, 4, 2, 1, 2, 0]).reshape(-1, 1)
+        # y = np.array([1, 1, 2, 4, 2, 1, 2, 0]).reshape(-1, 1)
 
-        for userFrame in userFrames:
-            dmin, jmin = np.inf, -1
-            for j, referenceFrame in enumerate(referenceFrames):
-                res, _ = fastdtw(userFrame, referenceFrame, dist=lambda userFrame, referenceFrame: np.linalg.norm(userFrame - referenceFrame, ord=1))
-                if res < dmin:
-                    dmin = res
-                    jmin = j
+        # x = np.array(userFrames)
+        x = []
+        # x = userFrames.reshape(-1)
+        # print(x)
+        # print(y)
 
-        print(dmin, jmin)
+        # # print(userFrames)
+        # y = referenceFrames.reshape(-1)
+
+        for frame in userFrames:
+            # print(frame)
+            frame = frame.reshape(-1)
+            x.append(frame)
+            # print(frame)
+            # print(userFrames[0])
+            # break
+        y = []
+        for frame in referenceFrames:
+            frame = frame.reshape(-1)
+            y.append(frame)
+
+        # # print(userFrames)
+        # # y = referenceFrames.reshape(-1)
+        # manhattan_distance = lambda x, y: np.abs(x - y)
+
+        d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=euclidean)
+
+        min = np.min(cost_matrix)
+        max = np.max(cost_matrix)
+
+        sum = 0
+        for i in range(len(path[0])):
+            sum += cost_matrix[path[0][i]][path[1][i]]
+
+        sum /= len(path[0])
+
+        # print(cost_matrix)
+        print(1 - (sum - min) / (max - min))
+
 
 
 if __name__=='__main__':
 
     mfccRef = MFCC('/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav')
     mfccRef.calculateMFCC()
+    compare = Compare()
 
-    mfcc1 = MFCC('/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-1-m.wav')
-    mfcc1.calculateMFCC()
-
-    Compare().crossValidation(mfccRef.listFrames, mfcc1.listFrames)
+    for file in ['/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/two-2-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/seven-7-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/one-1-5-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
+        mfcc1 = MFCC(file)
+        print(file.split('/')[-1])
+        mfcc1.calculateMFCC()
+        compare.crossValidation(mfccRef.listFrames, mfcc1.listFrames)
+        print('-'*15)
 
