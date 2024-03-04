@@ -3,14 +3,20 @@ import numpy as np
 from scipy.spatial.distance import euclidean
 from dtw import dtw
 import matplotlib.pyplot as plt
-import librosa.display
+# import librosa.display
 import noisereduce as nr
 import scipy.stats as stats
+
+import os
 
 _ALLOWABLE_ERROR = 20
 _STANDART_STEP = 1/8
 _VALID_MATCH = 0.5
 _INCREASE_STEP = 0.5
+
+directoryWithAudio = '/home/dasha/python_diplom/wav/' 
+
+
 
 class MFCC:
     def __init__(self, fileName) -> None:
@@ -22,12 +28,12 @@ class MFCC:
 
     def readFile(self):
         self.data, self.sampleRate = librosa.load(self._fileName)
-
-        self.data = nr.reduce_noise(y = self.data, sr=self.sampleRate, stationary=True)
-        # self.data = reduced_noise
         # fig, ax = plt.subplots(figsize=(20,3))
         # ax.plot(self.data)
         # plt.show()
+
+        self.data = nr.reduce_noise(y = self.data, sr=self.sampleRate, stationary=True)
+        # self.data = reduced_noise
         # # print(librosa.get_duration(y=self.data, sr=self.sampleRate))
 
 
@@ -88,6 +94,8 @@ class Compare:
     def __init__(self) -> None:
         pass
         # вероятно здесь будет какая-то сущность связанная с бд
+
+
     
     def crossValidation(self, referenceFrames, userFrames):
         """
@@ -111,13 +119,16 @@ class Compare:
 
     def crossValidationLongAudio(self, referenceFrames, userFrames, length, shift):
 
+        index = 0
+        sizeReference = len(referenceFrames)
+        coefIndexToSec = (length - shift) * 1000
+
         if abs(len(referenceFrames) - len(userFrames)) <= _ALLOWABLE_ERROR:
-            return self.crossValidation(referenceFrames=referenceFrames, userFrames=userFrames)
+            return self.crossValidation(referenceFrames=referenceFrames, userFrames=userFrames), index * coefIndexToSec, (index + sizeReference) * coefIndexToSec
+        
         i = 0
         endSlice = 0
         maxMatch = 0.0
-        index = 0
-        sizeReference = len(referenceFrames)
 
         while endSlice < len(userFrames):
             endSlice = i + sizeReference
@@ -132,25 +143,28 @@ class Compare:
             else:
                 i += int(_STANDART_STEP * sizeReference)
 
-        return maxMatch, index * (length - shift) / 1000
+
+        return maxMatch, index * coefIndexToSec, (index + sizeReference) * coefIndexToSec
 
 
 
 if __name__=='__main__':
 
-
-    # mfccRef = MFCC('/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav')
-    mfccRef = MFCC('/home/dasha/python_diplom/wav/hello-dasha.wav')
+    mfccRef = MFCC('/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav')
+    # mfccRef = MFCC('/home/dasha/python_diplom/wav/hello-dasha.wav')
+    # mfccRef = MFCC('/home/dasha/python_diplom/cut_res/five-in-sentence-cut.wav')
     mfccRef.calculateMFCC()
     compare = Compare()
 
     # for file in ['/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/two-2-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/seven-7-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/one-1-5-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
-    for file in ['/home/dasha/python_diplom/wav/hello-dasha.wav', '/home/dasha/python_diplom/wav/five-in-sentence.wav', '/home/dasha/python_diplom/wav/one-five.wav', '/home/dasha/python_diplom/wav/no-five.wav',  '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
-        mfcc1 = MFCC(file)
-        print(file.split('/')[-1])
-        mfcc1.calculateMFCC()
-        # compare.crossValidation(mfccRef.listFrames, mfcc1.listFrames)
-        print(compare.crossValidationLongAudio(mfccRef.listFrames, mfcc1.listFrames, mfcc1.lengthMs, mfcc1.shiftMs))
-        print('-'*15)
-        # break
+    # for file in ['/home/dasha/python_diplom/wav/hello-dasha.wav', '/home/dasha/python_diplom/wav/five-in-sentence.wav', '/home/dasha/python_diplom/wav/one-five.wav', '/home/dasha/python_diplom/wav/no-five.wav',  '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
+    # print(os.listdir(directoryWithAudio))
+    # for file in os.listdir(directoryWithAudio):
+    #     mfcc1 = MFCC(directoryWithAudio + file)
+    #     print(file.split('/')[-1])
+    #     mfcc1.calculateMFCC()
+    #     # compare.crossValidation(mfccRef.listFrames, mfcc1.listFrames)
+    #     print(compare.crossValidationLongAudio(mfccRef.listFrames, mfcc1.listFrames, mfcc1.lengthMs, mfcc1.shiftMs))
+    #     print('-'*15)
+    #     # break
 
