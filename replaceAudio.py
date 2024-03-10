@@ -3,27 +3,58 @@ from pydub import AudioSegment
 # import numpy as np
 import matplotlib.pyplot as plt
 import sys
+from math import fabs
+
+_SECOND_TO_MILLISECOND = 1000
 
 
 class SearchWord:
     def __init__(self, filename) -> None:
+        _wordTime = 200 # время за которое говорят 1 слово - 200 мс
         self.audioData = AudioSegment.from_file(filename)
-
+        self.sampleRate = self.audioData.frame_rate
+        self.maxAmplutideInAllSample = 0
+        self.initSizeWindow = int(_wordTime * self.sampleRate / _SECOND_TO_MILLISECOND)
 
         #TODO посмотреть может быть загружать данный таким способом, а не librosa будет быстрее
         # print((np.array(self.audioData.get_array_of_samples(), dtype=np.float32).reshape((-1, self.audioData.channels)) / (
         #     1 << (8 * self.audioData.sample_width - 1)))[-1], self.audioData.frame_rate)
         ###
 
-        self.sizeWindow = 25 # Я считаю что люди говорят слово за 25 миллисекунд
-        self.offset = 10
+
+    def normalization(self, listSample):
+        listSample = list(map(lambda sample: sample / self.maxAmplutideInAllSample, listSample))
+        return listSample
+    
+
+    def calculateThreshold(self, listSample, coefficient = 1.0):            
+        self.threshold_1 = coefficient * (sum(listSample) / len(listSample))
+
+
+    def chunks(self, lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            chunk = lst[i:i + n]
+            yield chunk, max(chunk)
+
+
+    def checkMutenessUsingTreshold_1(self, listSample):
+        splitWord = []
+        resultChunks = self.chunks(listSample, self.initSizeWindow)
+
 
 
     def searchWordsInAudioFragment(self, start: float, finish: float):
         fragment = self.audioData[start:finish].get_array_of_samples()
+        self.maxAmplutideInAllSample = fabs(max(fragment, key = lambda i: fabs(i), default = 0))
+        fragment = self.normalization(fragment)
 
-        coefficientMillSecondToSize = len(fragment) // (finish - start)
-        print(coefficientMillSecondToSize)
+        self.calculateThreshold(fragment, 0.55)
+        self.checkMutenessUsingTreshold_1(fragment)
+
+
+        # coefficientMillSecondToSize = len(fragment) // (finish - start)
+        # print(coefficientMillSecondToSize)
 
         # length = coefficientMillSecondToSize * self.sizeWindow
         # shift = coefficientMillSecondToSize * self.offset
@@ -36,18 +67,15 @@ class SearchWord:
         #         minAmplitude = _
         #         indexEnd = frame.index(_)
 
-
-
-
-
-
         # return 
         
 
-        fig, ax = plt.subplots(figsize=(20,3))
-        ax.plot(fragment)
-        plt.show()
+        # fig, ax = plt.subplots(figsize=(20,3))
+        # ax.plot(fragment)
+        # plt.show()
         # print(librosa.get_duration(y=self.data, sr=self.sampleRate))
+
+
 
 
 
