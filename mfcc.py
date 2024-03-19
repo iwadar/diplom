@@ -1,11 +1,10 @@
-import librosa
-import numpy as np
+from audio import *
 from scipy.spatial.distance import euclidean
 from dtw import dtw
 import matplotlib.pyplot as plt
-# import librosa.display
-import noisereduce as nr
+
 import scipy.stats as stats
+
 
 import os
 
@@ -19,29 +18,40 @@ directoryWithAudio = '/home/dasha/python_diplom/wav/'
 
 
 class MFCC:
-    def __init__(self, fileName) -> None:
-        self._fileName = fileName
-        self.data = None
-        self.sampleRate = 0
+    def __init__(self, audio: Audio) -> None:
+        self.audio = audio
         self.listFrames = list()
         self.length = 0
+        self.data = []
 
-    def readFile(self):
-        self.data, self.sampleRate = librosa.load(self._fileName)
-        # fig, ax = plt.subplots(figsize=(20,3))
-        # ax.plot(self.data)
-        # plt.show()
+    # def readFile(self):
+    #     self.audioData = AudioSegment.from_file(self._fileName)
 
-        self.data = nr.reduce_noise(y = self.data, sr=self.sampleRate, stationary=True)
+    #     # self.data, self.sampleRate = librosa.load(self._fileName)
+    #     # print(self.data)
+    #     # print((np.array(self.audioData.get_array_of_samples(), dtype=np.float32).reshape((-1, self.audioData.channels)) / (
+    #     #     1 << (8 * self.audioData.sample_width - 1))), self.audioData.frame_rate)
+    #     self.data, self.sampleRate = (np.array(self.audioData.get_array_of_samples(), dtype=np.float32).reshape((-1, self.audioData.channels)) / (
+    #         1 << (8 * self.audioData.sample_width - 1))).reshape(-1,), self.audioData.frame_rate
+    #     # print(self.data)
+
+    #     print(f'{len(self.data)} <- {len(self.audioData) * self.sampleRate / 1000}')
+        
+    #     # fig, ax = plt.subplots(figsize=(20,3))
+    #     # ax.plot(self.data)
+    #     # plt.show()
+
+    #     self.data = nr.reduce_noise(y = self.data, sr=self.sampleRate, stationary=True)
         # self.data = reduced_noise
         # # print(librosa.get_duration(y=self.data, sr=self.sampleRate))
 
 
-    def preEmphasis(self):
-        self.data = librosa.effects.preemphasis(self.data)
+    # def preEmphasis(self):
+    #     self.data = librosa.effects.preemphasis(self.data)
         
 
     def framing(self, length=0.025, shift=0.010):
+        # frames = librosa.util.frame(signal, frame_length=frame_length, hop_length=hop_length)
         self.lengthMs = length
         self.shiftMs = shift
         self.length = int(round(self.sampleRate * length))
@@ -143,12 +153,13 @@ class Compare:
             else:
                 i += int(_STANDART_STEP * sizeReference)
 
-
+        # вернем отсюда индексы нормализованного массива, а в replaceAudio будем сразу их юзать и не нужны будут доп преобразования
         return maxMatch, index * coefIndexToSec, (index + sizeReference) * coefIndexToSec
 
 
 
 if __name__=='__main__':
+
 
     mfccRef = MFCC('/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav')
     # mfccRef = MFCC('/home/dasha/python_diplom/wav/hello-dasha.wav')
@@ -158,13 +169,13 @@ if __name__=='__main__':
 
     # for file in ['/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/two-2-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/seven-7-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/one-1-5-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
     # for file in ['/home/dasha/python_diplom/wav/hello-dasha.wav', '/home/dasha/python_diplom/wav/five-in-sentence.wav', '/home/dasha/python_diplom/wav/one-five.wav', '/home/dasha/python_diplom/wav/no-five.wav',  '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
-    # print(os.listdir(directoryWithAudio))
-    # for file in os.listdir(directoryWithAudio):
-    #     mfcc1 = MFCC(directoryWithAudio + file)
-    #     print(file.split('/')[-1])
-    #     mfcc1.calculateMFCC()
-    #     # compare.crossValidation(mfccRef.listFrames, mfcc1.listFrames)
-    #     print(compare.crossValidationLongAudio(mfccRef.listFrames, mfcc1.listFrames, mfcc1.lengthMs, mfcc1.shiftMs))
-    #     print('-'*15)
-    #     # break
+    print(os.listdir(directoryWithAudio))
+    for file in os.listdir(directoryWithAudio):
+        mfcc1 = MFCC(directoryWithAudio + file)
+        print(file.split('/')[-1])
+        mfcc1.calculateMFCC()
+        # compare.crossValidation(mfccRef.listFrames, mfcc1.listFrames)
+        print(compare.crossValidationLongAudio(mfccRef.listFrames, mfcc1.listFrames, mfcc1.lengthMs, mfcc1.shiftMs))
+        print('-'*15)
+        # break
 

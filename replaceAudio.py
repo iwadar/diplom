@@ -1,6 +1,6 @@
 # import os
 from pydub import AudioSegment
-# import numpy as np
+import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from math import fabs
@@ -12,19 +12,13 @@ _SECOND_TO_MILLISECOND = 1000
 
 class SearchWord:
     def __init__(self, filename) -> None:
-        _wordTime = 2 # время за которое говорят 1 слово - 200 мс
+        _mutenessTime = 5 # время - средняя дистанция между словами 50 мс = бред просто подбираю
         self.audioData = AudioSegment.from_file(filename)
         self.sampleRate = self.audioData.frame_rate
         self.maxAmplutideInAllSample = 0
-        self.sizeWindow = int(_wordTime * self.sampleRate / _SECOND_TO_MILLISECOND)
+        self.sizeWindow = int(_mutenessTime * self.sampleRate / _SECOND_TO_MILLISECOND)
         self.threshold_1 = 0
         self.threshold_2 = 0
-
-
-        #TODO посмотреть может быть загружать данный таким способом, а не librosa будет быстрее
-        # print((np.array(self.audioData.get_array_of_samples(), dtype=np.float32).reshape((-1, self.audioData.channels)) / (
-        #     1 << (8 * self.audioData.sample_width - 1)))[-1], self.audioData.frame_rate)
-        ###
 
 
     def normalization(self, listSample):
@@ -40,38 +34,41 @@ class SearchWord:
     def splitWord(self, listSample, sizeWindow, threshold, offset = 0):
         startWordIndex = 0
         endWordIndex = 0
-        self.sizeWindow = sys.maxsize
         listWordTimeBorders = []
-        for i in range (0, len(listSample), 1):
-            if (endSlice := i + sizeWindow) > len(listSample) + 2:
-                return listWordTimeBorders
+        step = 1
+        print(sizeWindow)
+        for i in range (0, len(listSample), step):
+            endSlice = i + sizeWindow
             if max(listSample[i:endSlice]) < threshold:
-                if (difference := endWordIndex - startWordIndex) >= sizeWindow * 10:
+                if endWordIndex - startWordIndex >= sizeWindow * 10:
                     print(f'{startWordIndex + offset} : {endWordIndex + offset}')
-                    # listWordTimeBorders.append({(startWordIndex * _SECOND_TO_MILLISECOND / self.sampleRate , endWordIndex* _SECOND_TO_MILLISECOND / self.sampleRate): lst[startWordIndex:endWordIndex]})
                     listWordTimeBorders.append((startWordIndex + offset, endWordIndex + offset))
-                    
-                    if difference < self.sizeWindow:
-                        self.sizeWindow = difference
-                startWordIndex, endWordIndex = i, i
-            else:
-                endWordIndex = i
+                startWordIndex = endSlice
+            endWordIndex = endSlice
+        # print(listWordTimeBorders)
 
+        if endWordIndex - startWordIndex >= sizeWindow * 10:
+            listWordTimeBorders.append((startWordIndex + offset, endWordIndex + offset))
+            print(f'{startWordIndex + offset} : {endWordIndex + offset}')
+        # print(listWordTimeBorders)
         return listWordTimeBorders
 
 
     def splitContinuousWord(self, listSample, sizeWindow, threshold, listWordTimeBorders):
         splitContinuousWord = []
+        print('-'*20)
         for time in listWordTimeBorders:
             # word = listSample[time[0]:time[1]]
             # fig, ax = plt.subplots(figsize=(20,3))
             # ax.plot(word)
             # ax.axhline(y = self.threshold_2, color='red')
             # plt.show()
-            # print(sizeWindow)
+            # print((time[1] - time[0]))
 
             # надо чекать что слово разбилось и тогда удалять, если не разбилось тогда оставлять 
-            result = self.splitWord(listSample=listSample[time[0]:time[1]], sizeWindow=(time[1] - time[0]) // 50, threshold=threshold, offset=time[0])
+            # result = self.splitWord(listSample=listSample[time[0]:time[1]], sizeWindow=int((time[1] - time[0]) * 0.01), threshold=threshold, offset=time[0])
+            
+            result = self.splitWord(listSample=listSample[time[0]:time[1]], sizeWindow=sizeWindow, threshold=threshold, offset=time[0])
             if len(result) > 0:
                 splitContinuousWord.extend(result)
             else:
@@ -90,7 +87,8 @@ class SearchWord:
 
         self.maxAmplutideInAllSample = fabs(max(fragment, key = lambda i: fabs(i), default = 0))
         fragment = self.normalization(fragment)
-        self.threshold_1 = self.calculateThreshold(listSample=fragment, lenListSample=len(fragment), coefficient=0.55)
+        print(fragment)
+        self.threshold_1 = self.calculateThreshold(listSample=fragment, lenListSample=len(fragment), coefficient=0.47)
 
         # fig, ax = plt.subplots(figsize=(20,3))
         # ax.plot(fragment)
@@ -111,38 +109,14 @@ class SearchWord:
 
         self.threshold_2 = self.calculateThreshold(listSample=[sumSample], lenListSample=lenListWord)
 
-        self.wordTimeBorders = self.splitContinuousWord(fragment, self.sizeWindow, self.threshold_2, self.wordTimeBorders)
+        self.wordTimeBorders = self.splitContinuousWord(fragment, self.sizeWindow * 2, self.threshold_2, self.wordTimeBorders)        
 
+        fig, ax = plt.subplots(figsize=(20,3))
+        ax.plot(fragment)
+        ax.axhline(y = self.threshold_2, color='red')
+        ax.axhline(y = self.threshold_1, color='green')
 
-
-
-        
-
-
-        # fragment = self.checkMutenessUsingTreshold_2(fragment)
-
-
-        # coefficientMillSecondToSize = len(fragment) // (finish - start)
-        # print(coefficientMillSecondToSize)
-
-        # length = coefficientMillSecondToSize * self.sizeWindow
-        # shift = coefficientMillSecondToSize * self.offset
-
-        # minAmplitude = sys.maxsize
-        # indexEnd = 0
-        # for i in range (0, len(fragment) - 1, length - shift):
-        #     frame = fragment[i:length]
-        #     if (_ := min(frame)) < minAmplitude:
-        #         minAmplitude = _
-        #         indexEnd = frame.index(_)
-
-        # return 
-        
-
-        # fig, ax = plt.subplots(figsize=(20,3))
-        # ax.plot(fragment)
-        # ax.axhline(y = self.threshold_2, color='red')
-        # plt.show()
+        plt.show()
         # print(librosa.get_duration(y=self.data, sr=self.sampleRate))
 
 
@@ -153,7 +127,7 @@ class SearchWord:
             # for time in word:
 
                 trimmed_audio = self.audioData[start + (time[0] * _SECOND_TO_MILLISECOND / self.sampleRate):start + (time[1] * _SECOND_TO_MILLISECOND / self.sampleRate)]
-                trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{i}.wav", format="wav")
+                trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{time[0]}:{time[1]}.wav", format="wav")
                 i += 1
 
 
@@ -171,9 +145,11 @@ if __name__=='__main__':
 
 
     # search = SearchWord('/home/dasha/python_diplom/wav/five-in-sentence.wav')
-    search = SearchWord('/home/dasha/python_diplom/wav/1.wav')
-    search.searchWordsInAudioFragment(0, -1)
+    # search = SearchWord('/home/dasha/python_diplom/wav/febn.wav')
+    search = SearchWord('/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav')
+
+    # search.searchWordsInAudioFragment(0, -1)
 
 
     # search.searchWordsInAudioFragment(945.0, 1830.0)
-    search.getWavWord(0.0)
+    # search.getWavWord(0.0)
