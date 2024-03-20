@@ -5,3 +5,6 @@
 /lib64
 /share
 *.cfg
+/__pycache__
+/cut_res
+/wav
