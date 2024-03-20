@@ -1,12 +1,10 @@
 from audio import *
 from scipy.spatial.distance import euclidean
 from dtw import dtw
-import matplotlib.pyplot as plt
+from math import ceil
+# import matplotlib.pyplot as plt
 
 import scipy.stats as stats
-
-
-import os
 
 _ALLOWABLE_ERROR = 20
 _STANDART_STEP = 1/8
@@ -22,7 +20,14 @@ class MFCC:
         self.audio = audio
         self.listFrames = list()
         self.length = 0
-        self.data = []
+        # self.data = []
+
+    # def __init__(self, fileName) -> None:
+    #     self._fileName = fileName
+    #     self.data = None
+    #     self.sampleRate = 0
+    #     self.listFrames = list()
+    #     self.length = 0
 
     # def readFile(self):
     #     self.audioData = AudioSegment.from_file(self._fileName)
@@ -35,15 +40,17 @@ class MFCC:
     #         1 << (8 * self.audioData.sample_width - 1))).reshape(-1,), self.audioData.frame_rate
     #     # print(self.data)
 
-    #     print(f'{len(self.data)} <- {len(self.audioData) * self.sampleRate / 1000}')
+    #     print(f'{len(self.data)} <- {len(self.audioData) }') #* self.sampleRate / 1000}')
+    #     print(f'duration {(self.audioData.duration_seconds) * 1000}; coef {len(self.data) / self.audioData.duration_seconds}')
+
         
     #     # fig, ax = plt.subplots(figsize=(20,3))
     #     # ax.plot(self.data)
     #     # plt.show()
 
     #     self.data = nr.reduce_noise(y = self.data, sr=self.sampleRate, stationary=True)
-        # self.data = reduced_noise
-        # # print(librosa.get_duration(y=self.data, sr=self.sampleRate))
+    #     # self.data = reduced_noise
+    #     # # print(librosa.get_duration(y=self.data, sr=self.sampleRate))
 
 
     # def preEmphasis(self):
@@ -54,15 +61,15 @@ class MFCC:
         # frames = librosa.util.frame(signal, frame_length=frame_length, hop_length=hop_length)
         self.lengthMs = length
         self.shiftMs = shift
-        self.length = int(round(self.sampleRate * length))
-        shift = int(round(self.sampleRate * shift))
+        self.length = int(round(self.audio.sampleRate * length))
+        shift = int(round(self.audio.sampleRate * shift))
 
         print(f'Length = {self.length}, shift={shift}')
 
-        for i in range(0, len(self.data), self.length - shift): # я считаю сдвиг должен быть self.length - shift
+        for i in range(0, len(self.audio.dataNormalizing), self.length - shift): # я считаю сдвиг должен быть self.length - shift
         
         # for i in range(0, len(data), shift): # я считаю сдвиг должен быть self.length - shift
-            frame = self.data[i:i + self.length] # делаем срез
+            frame = self.audio.dataNormalizing[i:i + self.length] # делаем срез
 
             if len(frame) != self.length: # если не хватает попали на конец данных, забили нулями
                 frame = np.pad(frame, (0, (self.length - len(frame))), mode='constant')
@@ -81,16 +88,16 @@ class MFCC:
 
     def mfcc(self, n_mfcc = 13):
         # Беру 0 массив, потому что не понятно до сих пор как формируется shape результата
-        self.listFrames = np.array(list(map(lambda frame: librosa.feature.mfcc(y=frame, sr=self.sampleRate, n_mfcc=n_mfcc, hop_length=self.length).T[0],  self.listFrames)))
+        self.listFrames = np.array(list(map(lambda frame: librosa.feature.mfcc(y=frame, sr=self.audio.sampleRate, n_mfcc=n_mfcc, hop_length=self.length).T[0],  self.listFrames)))
         
-        # self.listFrames = np.array(list(map(lambda frame: librosa.feature.mfcc(y=frame, sr=self.sampleRate, n_mfcc=n_mfcc,  hop_length=self.length, n_fft=len(self.listFrames)).T[0],  self.listFrames)))
+        # self.listFrames = np.array(list(map(lambda frame: librosa.feature.mfcc(y=frame, sr=self.audio.sampleRate, n_mfcc=n_mfcc,  hop_length=self.length, n_fft=len(self.listFrames)).T[0],  self.listFrames)))
         
         # print(self.listFrames)
 
 
     def calculateMFCC(self):
-        self.readFile()
-        self.preEmphasis()
+        # self.readFile()
+        # self.preEmphasis()
         self.framing()
         self.windowing()
         self.mfcc()
@@ -127,11 +134,12 @@ class Compare:
         return (1 - (sum - min) / (max - min))
         # return d    
 
+
     def crossValidationLongAudio(self, referenceFrames, userFrames, length, shift):
 
         index = 0
         sizeReference = len(referenceFrames)
-        coefIndexToSec = (length - shift) * 1000
+        coefIndexToSec = (length - shift)  #* 1000
 
         if abs(len(referenceFrames) - len(userFrames)) <= _ALLOWABLE_ERROR:
             return self.crossValidation(referenceFrames=referenceFrames, userFrames=userFrames), index * coefIndexToSec, (index + sizeReference) * coefIndexToSec
@@ -153,29 +161,45 @@ class Compare:
             else:
                 i += int(_STANDART_STEP * sizeReference)
 
-        # вернем отсюда индексы нормализованного массива, а в replaceAudio будем сразу их юзать и не нужны будут доп преобразования
+        # здесь мы возвращаем сейчас время в секундах
+        print(f'index: {index}, indexEnd: {index + sizeReference}')
         return maxMatch, index * coefIndexToSec, (index + sizeReference) * coefIndexToSec
 
 
+    def getExactLocationWord(self, listWordBounds, referenceFrames, userFrames, coefficientIndexToSec):
+        """
+        Функция ищет точное место запретного слова
+        На вход: список tuple (начало слова, конец слова) в миллисекундах; референсное MFCC; коээфициент, которым перевели индексы в секунды
+        На выход: тайминг слова
+        """
+        maxMark, index = -1, 0
+        coefficientTimeToMfccIndex = 1000 * coefficientIndexToSec
+        for i, time in enumerate(listWordBounds):
+            _ = self.crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
+            if maxMark < _:
+                maxMark, index = _, i
 
-if __name__=='__main__':
+        return maxMark, listWordBounds[index]
+        
 
+# if __name__=='__main__':
 
-    mfccRef = MFCC('/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav')
-    # mfccRef = MFCC('/home/dasha/python_diplom/wav/hello-dasha.wav')
-    # mfccRef = MFCC('/home/dasha/python_diplom/cut_res/five-in-sentence-cut.wav')
-    mfccRef.calculateMFCC()
-    compare = Compare()
+    
+    # mfccRef = MFCC('/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav')
+#     # mfccRef = MFCC('/home/dasha/python_diplom/wav/hello-dasha.wav')
+#     # mfccRef = MFCC('/home/dasha/python_diplom/cut_res/five-in-sentence-cut.wav')
+    # mfccRef.calculateMFCC()
+#     compare = Compare()
 
-    # for file in ['/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/two-2-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/seven-7-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/one-1-5-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
-    # for file in ['/home/dasha/python_diplom/wav/hello-dasha.wav', '/home/dasha/python_diplom/wav/five-in-sentence.wav', '/home/dasha/python_diplom/wav/one-five.wav', '/home/dasha/python_diplom/wav/no-five.wav',  '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
-    print(os.listdir(directoryWithAudio))
-    for file in os.listdir(directoryWithAudio):
-        mfcc1 = MFCC(directoryWithAudio + file)
-        print(file.split('/')[-1])
-        mfcc1.calculateMFCC()
-        # compare.crossValidation(mfccRef.listFrames, mfcc1.listFrames)
-        print(compare.crossValidationLongAudio(mfccRef.listFrames, mfcc1.listFrames, mfcc1.lengthMs, mfcc1.shiftMs))
-        print('-'*15)
+#     # for file in ['/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/two-2-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/seven-7-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/one-1-5-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
+#     # for file in ['/home/dasha/python_diplom/wav/hello-dasha.wav', '/home/dasha/python_diplom/wav/five-in-sentence.wav', '/home/dasha/python_diplom/wav/one-five.wav', '/home/dasha/python_diplom/wav/no-five.wav',  '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-0-m.wav', '/home/dasha/python_diplom/ASR/wavs/training/in_db_sd_low_spl/five-5-5-m.wav']:
+#     print(os.listdir(directoryWithAudio))
+#     for file in os.listdir(directoryWithAudio):
+#         mfcc1 = MFCC(directoryWithAudio + file)
+#         print(file.split('/')[-1])
+#         mfcc1.calculateMFCC()
+#         # compare.crossValidation(mfccRef.listFrames, mfcc1.listFrames)
+#         print(compare.crossValidationLongAudio(mfccRef.listFrames, mfcc1.listFrames, mfcc1.lengthMs, mfcc1.shiftMs))
+#         print('-'*15)
         # break
 
