@@ -1,5 +1,5 @@
 from audio import *
-from scipy.spatial.distance import euclidean
+from scipy.spatial.distance import euclidean, cosine
 from dtw import dtw
 from math import ceil
 # import matplotlib.pyplot as plt
@@ -7,11 +7,11 @@ from math import ceil
 import scipy.stats as stats
 
 _ALLOWABLE_ERROR = 20
-_STANDART_STEP = 1/8
+_STANDART_STEP = 1/16
 _VALID_MATCH = 0.5
 _INCREASE_STEP = 0.5
 
-_WORD_PRESENCE_TRESHOLDER = 0.8
+_WORD_PRESENCE_TRESHOLDER = 0.79
 _ALLOWED_ERROR_FLOAT = 0.01
 
 directoryWithAudio = '/home/dasha/python_diplom/wav/'
@@ -23,41 +23,6 @@ class MFCC:
         self.audio = audio
         self.listFrames = list()
         self.length = 0
-        # self.data = []
-
-    # def __init__(self, fileName) -> None:
-    #     self._fileName = fileName
-    #     self.data = None
-    #     self.sampleRate = 0
-    #     self.listFrames = list()
-    #     self.length = 0
-
-    # def readFile(self):
-    #     self.audioData = AudioSegment.from_file(self._fileName)
-
-    #     # self.data, self.sampleRate = librosa.load(self._fileName)
-    #     # print(self.data)
-    #     # print((np.array(self.audioData.get_array_of_samples(), dtype=np.float32).reshape((-1, self.audioData.channels)) / (
-    #     #     1 << (8 * self.audioData.sample_width - 1))), self.audioData.frame_rate)
-    #     self.data, self.sampleRate = (np.array(self.audioData.get_array_of_samples(), dtype=np.float32).reshape((-1, self.audioData.channels)) / (
-    #         1 << (8 * self.audioData.sample_width - 1))).reshape(-1,), self.audioData.frame_rate
-    #     # print(self.data)
-
-    #     print(f'{len(self.data)} <- {len(self.audioData) }') #* self.sampleRate / 1000}')
-    #     print(f'duration {(self.audioData.duration_seconds) * 1000}; coef {len(self.data) / self.audioData.duration_seconds}')
-
-        
-    #     # fig, ax = plt.subplots(figsize=(20,3))
-    #     # ax.plot(self.data)
-    #     # plt.show()
-
-    #     self.data = nr.reduce_noise(y = self.data, sr=self.sampleRate, stationary=True)
-    #     # self.data = reduced_noise
-    #     # # print(librosa.get_duration(y=self.data, sr=self.sampleRate))
-
-
-    # def preEmphasis(self):
-    #     self.data = librosa.effects.preemphasis(self.data)
         
 
     def framing(self, length=0.025, shift=0.010):
@@ -124,102 +89,109 @@ class Compare:
         """
         примем пока что они плюс минус равны по размеру
         """
-        # print(f'frames nan {np.isnan(stats.zscore(referenceFrames)).any()}')
-        # print(f'user nan {np.isnan(stats.zscore(userFrames)).any()}')
 
-        # if np.isnan(stats.zscore(userFrames)).any():
-        # print(userFrames)
-        # print('-'*12)
-        # print(stats.zscore(userFrames))
-        # print('*'*12)
+        userFrames, referenceFrames = stats.zscore(userFrames), stats.zscore(referenceFrames)
 
+        if np.isnan(userFrames).any() or np.isinf(userFrames).any() or np.isnan(referenceFrames).any() or np.isinf(referenceFrames).any():
+            return -1
 
-        # if np.isnan(stats.zscore(referenceFrames)).any():
-        #     print(stats.zscore(referenceFrames))
+        _, cost_matrix, _, path = dtw(userFrames, referenceFrames, dist=euclidean)
 
-        # if np.isinf(stats.zscore(userFrames)).any():
-        #     print(stats.zscore(userFrames))
+        # cost_matrix = stats.zscore(cost_matrix)
 
-        # if np.isinf(stats.zscore(referenceFrames)).any():
-        #     print(stats.zscore(referenceFrames))
-        # print(f'frames inf {np.isinf(stats.zscore(referenceFrames)).any()}')
-        # print(f'user inf {np.isinf(stats.zscore(userFrames)).any()}')
+        if np.isnan(cost_matrix).any() or np.isinf(cost_matrix).any():
+            return -1
 
+        min, max, sum = np.min(cost_matrix), np.max(cost_matrix), 0.0
 
-
-        d, cost_matrix, acc_cost_matrix, path = dtw(stats.zscore(userFrames), stats.zscore(referenceFrames, nan_policy='omit'), dist=euclidean)
-
-        min = np.min(cost_matrix)
-        max = np.max(cost_matrix)
-
-        sum = 0
         for i in range(len(path[0]) - 1):
             sum += cost_matrix[int(path[0][i])][int(path[1][i])]
 
         sum /= len(path[0])
 
-        # print(1 - (sum - min) / (max - min))
-        return (1 - (sum - min) / (max - min))
-        # return d    
+        return (1 - ((sum - min) / (max - min)))
 
 
-    def crossValidationLongAudio(self, referenceFrames, userFrames, length, shift):
+    def crossValidationLongAudio(self, referenceFrames, userFrames, coefIndexToSec):
 
-        index = 0
-        sizeReference = len(referenceFrames)
-        coefIndexToSec = (length - shift)  #* 1000
+        index, sizeReference, listTimeInterval = 0,  len(referenceFrames), []
 
-        listTimeInterval = []
 
         if abs(len(referenceFrames) - len(userFrames)) <= _ALLOWABLE_ERROR:
-            # print(f'frames nan {np.isnan(referenceFrames).any()}')
-            # print(f'user nan {np.isnan(userFrames).any()}')
-
-            # print(f'frames inf {np.isinf(referenceFrames).any()}')
-            # print(f'user inf {np.isinf(userFrames).any()}')
             if (result := self.crossValidation(referenceFrames=referenceFrames, userFrames=userFrames)) >= _WORD_PRESENCE_TRESHOLDER:
                 return [(index * coefIndexToSec, (index + sizeReference) * coefIndexToSec, result)]
-        
-        i = 0
-        maxMatch = 0.0
-        prevIndex = 0
+        else:
+            
+            i, rating, count = 0, 0.0, 0
+            startIndex, endIndex = 0, 0
 
-        while i < len(userFrames):
-            # print(f'frames nan {np.isnan(referenceFrames).any()}')
-            # print(f'user nan {np.isnan(userFrames[i:i + sizeReference]).any()}')
+            while i < len(userFrames):
+                endSlice = i + sizeReference
+                result = self.crossValidation(referenceFrames=referenceFrames, userFrames=userFrames[i:endSlice])
 
-            # print(f'frames inf {np.isinf(referenceFrames).any()}')
-            # print(f'user inf {np.isinf(userFrames[i:i + sizeReference]).any()}')
-            # print(f'len: {len(userFrames)}, i: {i}, end: {i + sizeReference}')
-            if len(userFrames) - i >= len(referenceFrames)/2:
 
-                result = self.crossValidation(referenceFrames=referenceFrames, userFrames=userFrames[i:i + sizeReference])
-            if result > maxMatch:
-                maxMatch = result
-                index = i
-            elif maxMatch >= _WORD_PRESENCE_TRESHOLDER:
-                if index < prevIndex:
-                    listTimeInterval[-1] = (listTimeInterval[-1][0], (index + sizeReference) * coefIndexToSec, (listTimeInterval[-1][-1] + maxMatch)/2)
+                if result >= _WORD_PRESENCE_TRESHOLDER and i <= endIndex:
+                    # rating += result
+                    endIndex = endSlice
+                    # count += 1
+                elif i > endIndex:
+                    if startIndex != endIndex:
+                        listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec))
+                        # listTimeInterval.append((startIndex, endIndex))
+                                       
+                    if result >= _WORD_PRESENCE_TRESHOLDER:
+                        # print(f'here {i}, {endSlice}')
+                        startIndex, endIndex = i, endSlice
+                    else:
+                        startIndex, endIndex = i, i
+                    # rating, count = 0.0, 0
+
+
+                # elif result >= _WORD_PRESENCE_TRESHOLDER and i > endIndex:
+                #     listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec, rating / (endIndex - startIndex + 1)))
+                #     startIndex, endIndex = i, endSlice
+                # elif result < _WORD_PRESENCE_TRESHOLDER and i > endIndex:
+                #     listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec, rating / (endIndex - startIndex + 1)))
+                    # startIndex, endIndex = endSlice, endSlice
+
+
+
+                # Если результат больше максимального, то мы запоминаем его и индекс
+                # if result > maxMatch:
+                #     maxMatch = result
+                #     index = i
+                #     # print(f'result > max max: {maxMatch}, index: {index}, prevIndex: {prevIndex}')
+                # # Иначе если результат меньше максимального, то мы смотрим максимальный был ли больше порога и записываем
+                # elif maxMatch >= _WORD_PRESENCE_TRESHOLDER:
+                #     if prevIndex and index <= prevIndex:
+                #         # print(listTimeInterval[-1][0] / coefIndexToSec, (index + sizeReference) , (listTimeInterval[-1][-1] + maxMatch)/2)
+                #         listTimeInterval[-1] = (listTimeInterval[-1][0], (index + sizeReference) * coefIndexToSec, (listTimeInterval[-1][-1] + maxMatch)/2)
+                #     else:
+                #         # print(index, (index + sizeReference), maxMatch)
+                #         listTimeInterval.append(((index) * coefIndexToSec, (index + sizeReference) * coefIndexToSec, maxMatch))
+                #     maxMatch, prevIndex = 0.0, index + sizeReference
+                # # иначе сбрасываем и заново ждем 
+                # else:
+                #     maxMatch = 0.0    
+
+                # print(f'i = {i}, end = {endSlice}, match = {result}')
+
+
+                # if result < _VALID_MATCH:
+                #     i += ceil(_INCREASE_STEP * sizeReference)
+                if abs(_WORD_PRESENCE_TRESHOLDER - result) < 0.1:
+                    i += 2
                 else:
-                    listTimeInterval.append((index * coefIndexToSec, (index + sizeReference) * coefIndexToSec, maxMatch))
-                maxMatch, prevIndex = 0.0, index + sizeReference
-            else:
-                maxMatch = 0.0    
+                    i += ceil(_STANDART_STEP * sizeReference)
 
-
-
-            if result < _VALID_MATCH:
-                i += int(_INCREASE_STEP * sizeReference)
-            # # elif result > maxMatch:            
-            # elif abs(result - _WORD_PRESENCE_TRESHOLDER) <= _ALLOWED_ERROR_FLOAT:   
-            #     listTimeInterval.append((i * coefIndexToSec, (i + sizeReference) * coefIndexToSec))        
-            #     i += int(_STANDART_STEP * sizeReference)
-            else:
-                i += int(_STANDART_STEP * sizeReference)
-            # print(result)
+        if startIndex != endIndex:
+            # listTimeInterval.append((startIndex, endIndex))
+            listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec))
+            
 
         # здесь мы возвращаем сейчас время в секундах
         # print(f'index: {index}, indexEnd: {index + sizeReference}')
+        # print(len(userFrames))
         return listTimeInterval
 
 
@@ -231,12 +203,21 @@ class Compare:
         """
         listTimeInterval = []
         coefficientTimeToMfccIndex = 1000 * coefficientIndexToSec
+        # print('last find')
+        maxMatch, timeMatch = 0.0, (0, 0)
         for time in listWordBounds:
+            # print(f'frames: {int(time[0] / coefficientTimeToMfccIndex)}: {ceil(time[1] / coefficientTimeToMfccIndex)} ')
             _ = self.crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
+            print(_, time)
             if _ >= _WORD_PRESENCE_TRESHOLDER:
                 listTimeInterval.append((time[0], time[1], _))
-
-        return listTimeInterval
+            elif _ > maxMatch:
+                    maxMatch = _
+                    timeMatch = time
+        if listTimeInterval:
+            return listTimeInterval
+        else:
+            return [(timeMatch[0], timeMatch[1], maxMatch)]
         
 
 # if __name__=='__main__':

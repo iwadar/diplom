@@ -8,6 +8,33 @@ directoryWithReference = '/home/dasha/python_diplom/reference/'
 
 
 
+def connectWordTime(listWordTimeBorders):
+        if len(listWordTimeBorders) == 1:
+            return listWordTimeBorders
+        newWordTimeBorder = []
+        i = 1
+        while i < len(listWordTimeBorders) + 1:
+            start = listWordTimeBorders[i - 1][0]
+            finish = listWordTimeBorders[i - 1][1]
+            if i != len(listWordTimeBorders):
+                while listWordTimeBorders[i][0] - listWordTimeBorders[i - 1][1] <= 75.0:
+                    finish = listWordTimeBorders[i][1]
+                    i += 1
+                    if i >= len(listWordTimeBorders):
+                        break
+            if finish - start > 100.0:
+                newWordTimeBorder.append((start, finish))
+            i += 1
+            
+
+        # for i in range(1, len(listWordTimeBorders) - 1):
+        #     if listWordTimeBorders[i][0] - listWordTimeBorders[i - 1][1] <= self._thresholdWordSample:
+        #         newWordTimeBorder.append(listWordTimeBorders[i - 1][0], listWordTimeBorders[i][1])
+        #     else:
+        #         newWordTimeBorder.append
+        return newWordTimeBorder
+
+
 if __name__=='__main__':
 
     # audio = Audio('/home/dasha/python_diplom/reference/imba.wav')
@@ -25,39 +52,50 @@ if __name__=='__main__':
     dictionaryReference = dict()
 
     dictWordAndTime = {}
-
+    a = {}
     #загрузили референсы
     for file in os.listdir(directoryWithReference):
         audio.updateData(directoryWithReference + file)
+        a[os.path.splitext(file)[0]] = audio.audioData.duration_seconds
         mfcc.calculateMFCC()
-        dictionaryReference[os.path.splitext(file)[0]] = copy.deepcopy(mfcc.listFrames)
+        dictionaryReference[os.path.splitext(file)[0]] = mfcc.listFrames.copy()
         dictWordAndTime[os.path.splitext(file)[0]] = []
     
-    if (dictionaryReference['imba'] == dictionaryReference['cringe_1']).all():
-        print (f'imba: {dictionaryReference["imba"]}\ncringe: {dictionaryReference["cringe_1"]}')
+
     # загрузили аудио от юзера
-    audio.updateData('/home/dasha/python_diplom/wav/user_v.1.wav')
+    audio.updateData('/home/dasha/python_diplom/wav/user_v.3.wav')
     mfcc.calculateMFCC()
 
     # посчитали для каждого референса, где че нашли
     for name, frames in dictionaryReference.items():
-        print(name)
-        dictWordAndTime[name].extend(compare.crossValidationLongAudio(referenceFrames=frames, userFrames=mfcc.listFrames, length=mfcc.lengthMs, shift=mfcc.shiftMs))
+        # print('\n' + name)
+        dictWordAndTime[name].extend(compare.crossValidationLongAudio(referenceFrames=frames, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs))
     #     break
-    # print(dictWordAndTime)
+    print(dictWordAndTime)
+
+    print('*'*15)
 
     # sys.exit()
+    # dictWordAndTime['imba'] = [(0.915, 6.945, 0.8250500038823403)]
     # теперь разделяем на сегменты части
     for name, listTimes in dictWordAndTime.items():
         temporary = []
+        # print(name)
         for time in listTimes:
-            temporary.extend(segmentation.searchWordsInAudioFragment(start=time[0], finish=time[1]))
-        dictWordAndTime[name] = temporary
+            temporary.extend(segmentation.searchWordsInAudioFragment(start=time[0], finish=time[1], sizeWindow=a[name]))
+        # print(f'{name}: {temporary}')
+        # dictWordAndTime[name] = temporary
+            
+        dictWordAndTime[name] = connectWordTime(temporary)
+        # print(f'{name}: {dictWordAndTime[name]}')
+        # print('-'*15)
 
-    print(dictWordAndTime)
+
+    print('-'*15 + f'\nSegment\n {dictWordAndTime}\n')
     
-
+    # sys.exit()
     for name, listTimes in dictWordAndTime.items():
+        print(f'-------------------------------\n{name}')
         dictWordAndTime[name] = compare.getExactLocationWord(listTimes, dictionaryReference[name], mfcc.listFrames, mfcc.lengthMs - mfcc.shiftMs)
         
 
@@ -65,7 +103,7 @@ if __name__=='__main__':
                 trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
                 trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{time[0]}:{time[1]}.wav", format="wav")
 
-    print(f'laaast: {dictWordAndTime}')
+    print(f'-------------------------------\nlaaast: {dictWordAndTime}')
 
 
 
