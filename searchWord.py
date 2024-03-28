@@ -1,7 +1,7 @@
-from mfcc import *
 from segmentationAudio import *
 import os, sys
 import copy
+from databases import *
 
 directoryWithAudio = '/home/dasha/python_diplom/wav/'
 directoryWithReference = '/home/dasha/python_diplom/reference/' 
@@ -37,45 +37,34 @@ def connectWordTime(listWordTimeBorders):
 
 if __name__=='__main__':
 
-    # audio = Audio('/home/dasha/python_diplom/reference/imba.wav')
-    # mfcc = MFCC(audio=audio)
-    # mfcc.calculateMFCC()
-    # compare = Compare()
-
-    audio = Audio()
+    audio = Audio('/home/dasha/python_diplom/wav/user_v.2.wav')
     mfcc = MFCC(audio=audio)
     segmentation = SegmentationWord(audio=audio)
-
     compare = Compare()
 
 
-    dictionaryReference = dict()
-
     dictWordAndTime = {}
-    a = {}
-    #загрузили референсы
-    for file in os.listdir(directoryWithReference):
-        audio.updateData(directoryWithReference + file)
-        a[os.path.splitext(file)[0]] = audio.audioData.duration_seconds
-        mfcc.calculateMFCC()
-        dictionaryReference[os.path.splitext(file)[0]] = mfcc.listFrames.copy()
-        dictWordAndTime[os.path.splitext(file)[0]] = []
-    
+
+    db = Database()
+    db.connect()
+    dictionaryReference = db.getMFCCFromDB()
+    db.disconnect()
+
 
     # загрузили аудио от юзера
-    audio.updateData('/home/dasha/python_diplom/wav/user_v.3.wav')
+    # audio.updateData('/home/dasha/python_diplom/wav/user_v.1.wav')
     mfcc.calculateMFCC()
 
     # посчитали для каждого референса, где че нашли
     for name, frames in dictionaryReference.items():
-        # print('\n' + name)
-        dictWordAndTime[name].extend(compare.crossValidationLongAudio(referenceFrames=frames, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs))
-    #     break
+
+        print('\n' + name)
+        dictWordAndTime[name] = compare.crossValidationLongAudio(referenceFrames=frames, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs)
     print(dictWordAndTime)
 
     print('*'*15)
 
-    # sys.exit()
+    sys.exit()
     # dictWordAndTime['imba'] = [(0.915, 6.945, 0.8250500038823403)]
     # теперь разделяем на сегменты части
     for name, listTimes in dictWordAndTime.items():

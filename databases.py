@@ -2,6 +2,10 @@ import configparser
 import os.path
 import pickle
 import psycopg2
+from mfcc import *
+from audio import *
+import re
+
 _CONFIG_NAME = 'configDataBases.ini'
 _LOCALHOST = 'localhost'
 _DATABASE = 'Database'
@@ -9,6 +13,9 @@ _HOST = 'host'
 _USER = 'user'
 _DBNAME = 'dbname'
 _PASSWORD = 'password'
+_NOT_EXIST = -1
+
+directoryWithReference = '/home/dasha/python_diplom/reference/' 
 
 
 class Config:
@@ -58,50 +65,112 @@ class Database:
     def disconnect(self):
         try:
             self.connection.close()
+            print('Database disconnected')
         except:
             print('Disconnect failed!')
 
-    def insertInformationToDB(self, tableName, name, mfcc):
+
+    def insertToReferenceWord(self, tableName, categoryId, mfcc, weight):
         try:
-            self.cursor.execute(f"INSERT INTO {tableName} (name, mfcc) VALUES (%s, %s)", (name, mfcc))
+            self.cursor.execute(f"INSERT INTO {tableName} (categoryid, mfcc, weight) VALUES  (%s, %s, %s)", (categoryId, mfcc, weight))
             self.connection.commit()
             print('Entry added successfully!')
         except Exception as e:
             print(f'Adding completed with error: {e}')
 
-    def selectMFCCFromDB(self, tableName):
-        self.cursor.execute(f'SELECT * FROM {tableName}')
+
+    def getMFCCFromDB(self, categoryreplacement = 'categoryreplacement', referenceword='referenceword'):
+        self.cursor.execute(f"""SELECT {categoryreplacement}.word, {referenceword}.mfcc, {referenceword}.weight FROM {categoryreplacement}, {referenceword}
+                                WHERE {referenceword}.categoryid = {categoryreplacement}.id
+                                ORDER BY {categoryreplacement}.word""")
 
         rows = self.cursor.fetchall()
         dictNameAndMfcc = dict()
-        ## Get the results
+
+        # 0 - id category, 1 - mfcc, 2 - weight
         for each in rows:
             # print(each)
-            dictNameAndMfcc[each[1]] = pickle.loads(each[2])
-        
-        print(dictNameAndMfcc)
-        return dictNameAndMfcc
-            ## The result is also in a tuple
-                
-                ## Unpickle the stored string
-                # unpickledList = pickle.loads(pickledStoredList)
-                # print(unpickledList)
+            if each[0] not in dictNameAndMfcc:
+                dictNameAndMfcc[each[0]] = []
+            # dictNameAndMfcc[each[0]].append(pickle.loads(each[1]))
+            dictNameAndMfcc[each[0]].append((pickle.loads(each[1]), each[2]))
 
+        # print(dictNameAndMfcc)
+        return dictNameAndMfcc
+
+
+
+    def isExistWord(self, tableName, word):
+
+        self.cursor.execute(f"SELECT id FROM {tableName} WHERE word='{word}'")
+        rows = self.cursor.fetchall()
+        if rows:
+            return rows[0][0]
+        else:
+            return _NOT_EXIST
+    
+    
+    def insertToCategoryReplacment(self, tableName, word, replacement = ''):
+        try:
+            self.cursor.execute(f"INSERT INTO {tableName} (word, replacement) VALUES ('{word}', '{replacement}') RETURNING id")
+            insertedID = self.cursor.fetchone()[0]
+            self.connection.commit()
+            # print('Entry added successfully!')
+            return insertedID
+        except Exception as e:
+            print(f'Adding completed with error: {e}')
+
+
+    def insertNewReferenceToDb(self, filename, mfcc):
+        word_weight = re.split("_| ", os.path.splitext(filename)[0])
+        if len(word_weight) < 2:
+            print('Bad filename! (category_weight.wav)')
+            return
+        word, weight = word_weight[0], float(word_weight[1])
+
+        # 
+        if word != 'imba':
+            return
+        # 
+
+        if weight > 1.0 or weight < 0.0:
+            print('Bad weight! [0, 1]')
+            return
+        
+        mfccToDb = pickle.dumps(mfcc)
+
+        # Если такого слова еще нет, то надо добавить его в categoryreplacment
+        if (idWord := self.isExistWord(tableName='categoryreplacement', word=word)) == _NOT_EXIST:
+            idWord = self.insertToCategoryReplacment(tableName='categoryreplacement', word=word)
+        
+        self.insertToReferenceWord(tableName='referenceword', categoryId=idWord, mfcc=mfccToDb, weight=weight)
 
 
 if __name__=='__main__':
     db = Database()
     db.connect()
 
+    audio = Audio()
+    mfcc = MFCC(audio=audio)
+    file = 'imba_0.59.wav'
 
-        ## Create a semi-complex list to pickle
-    listToPickle = [(10, 10), (20, 10.0), (1.0, 2.0)]
+    # for file in os.listdir(directoryWithReference):
 
-    ## Pickle the list into a string
-    pickledList = pickle.dumps(listToPickle)
-
-    # db.insertInformationToDB(tableName='test2', name='cring_1', mfcc=pickledList)
-    db.selectMFCCFromDB(tableName='test2')
-
+    audio.updateData(directoryWithReference + file)
+    mfcc.calculateMFCC()
+    mfcc.listFrames = stats.zscore(mfcc.listFrames)
+    db.insertNewReferenceToDb(file, mfcc.listFrames)
     db.disconnect()
     
+#     #     ## Create a semi-complex list to pickle
+#     # listToPickle = [(10, 10), (20, 10.0), (1.0, 2.0)]
+
+#     # ## Pickle the list into a string
+#     # pickledList = pickle.dumps(listToPickle)
+
+#     # # db.insertInformationToDB(tableName='test2', name='cring_1', mfcc=pickledList)
+#     # db.selectMFCCFromDB(tableName='test2')
+    # db.getMFCCFromDB()
+
+    
+
