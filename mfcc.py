@@ -168,7 +168,7 @@ class Compare:
 
         sizeReference = int(sizeReference / len(referenceFrames))
 
-        print(sizeReference)
+        # print(sizeReference)
 
         i, rating, count = 0, 0.0, 0
         startIndex, endIndex = 0, 0
@@ -220,7 +220,7 @@ class Compare:
         # здесь мы возвращаем сейчас время в секундах
         # print(f'index: {index}, indexEnd: {index + sizeReference}')
         # print(len(userFrames))
-        print('--'*15)
+        # print('--'*15)
         # print(maxRes)
         return listTimeInterval
 

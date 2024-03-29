@@ -1,7 +1,8 @@
 from math import fabs, ceil
 from audio import *
-from pydub.silence import split_on_silence 
+from sys import maxsize
 _SECOND_TO_MILLISECOND = 1000
+_GOOD_LOCALITY = 3
 
 
 class SegmentationWord:
@@ -12,7 +13,7 @@ class SegmentationWord:
         self._sizeWindow = 0 #int(self._mutenessTime * self._audio.sampleRate / _SECOND_TO_MILLISECOND)
         self._thresholdWordSample = 750 # длина, за которую вряд ли что-то скажут
 
-
+        self.dictSizeWindow = {2.5: (150, 78), 7.5: (200, 80), 15: (200, 87)}
 
     def _calculateThreshold(self, listSample, lenListSample, coefficient = 1.0):   
         return fabs(coefficient * (sum(listSample) / lenListSample))
@@ -112,7 +113,7 @@ class SegmentationWord:
 
 
 
-    def searchWordsInAudioFragment(self, start: float, finish: float, sizeWindowSilence, sizeWindowContinuousWord) -> list:
+    def searchWordsInAudioFragment(self, start: float, finish: float) -> list:
         """
         На вход: время начало и конца фрагмента в СЕКУНДАХ!!!
         """
@@ -121,6 +122,14 @@ class SegmentationWord:
         if not fragment:
             return []
         
+        difference = finish - start
+        duration = list(self.dictSizeWindow.keys())
+        duration.insert(0, 0)
+
+        for i in range(len(duration) - 1):
+            if duration[i] < difference <= duration[i + 1]:
+                sizeWindowSilence, sizeWindowContinuousWord = int(self.dictSizeWindow[duration[i + 1]][0] * audio.sampleRate / _SECOND_TO_MILLISECOND), int(self.dictSizeWindow[duration[i + 1]][1] * audio.sampleRate / _SECOND_TO_MILLISECOND)
+                break
         # print(len(fragment))
         threshold_1 = self._calculateThreshold(listSample=fragment, lenListSample=len(fragment), coefficient=0.22)
 
@@ -157,17 +166,12 @@ class SegmentationWord:
 
         # print(wordTimeBorders)
 
-
-
-
-
-
+        # print(f'now {wordTimeBorders}')
         for i, time in enumerate(wordTimeBorders):
             # print(f'ready: {time}')
             wordTimeBorders[i] = (start + (time[0] * _SECOND_TO_MILLISECOND / self._audio.sampleRate), start + (time[1] * _SECOND_TO_MILLISECOND / self._audio.sampleRate))
         
-        # print(f'now {wordTimeBorders}')
-        # # # # График для контроля
+        # # # График для контроля
         # fig, ax = plt.subplots(figsize=(20,3))
         # ax.plot(fragment)
         # # # plt.show()
@@ -194,6 +198,106 @@ class SegmentationWord:
 
 
 
+    # def createSlice(self, start, finish, sizeWindowSilence, sizeWindowContinuousWord):
+    #     fragment = list(map(lambda x: fabs(x), self._audio.dataNormalizing[int(start * self._audio.sampleRate):ceil(finish * self._audio.sampleRate)]))
+    #     if not fragment:
+    #         return []
+        
+
+    #     threshold_1 = self._calculateThreshold(listSample=fragment, lenListSample=len(fragment), coefficient=0.22)
+        
+    #     fragment = [fragment]
+    #     # надо подобрать приемлемую погрешность
+    #     if (diff := finish - start) > _GOOD_LOCALITY:
+    #         # slices = []
+    #         for i in range(_GOOD_LOCALITY, ceil(diff) + 1): # +1 потому что перекрытие в 1 секунду
+    #             # slices.append(fragment[i - _GOOD_LOCALITY: i]) 
+    #             fragment.append(fragment[0][int((i - _GOOD_LOCALITY)*self._audio.sampleRate):ceil(i * self._audio.sampleRate)])    
+
+    #         del fragment[0]
+
+    #     start *= 1000
+    #     for i, location in enumerate(fragment):
+    #         wordTimeBorders = self._splitWord(listSample=location, sizeWindow=sizeWindowSilence, threshold=threshold_1, offset=int(i * self._audio.sampleRate))
+
+    #         # print(wordTimeBorders)
+
+
+    #         if not wordTimeBorders:
+    #             return wordTimeBorders
+            
+
+    #         sumSample, lenListWord = 0.0, 0
+    #         for time in wordTimeBorders:
+    #             sumSample += sum(location[time[0]:time[1]])
+    #             lenListWord += (time[1] - time[0])
+
+    #         threshold_2 = self._calculateThreshold(listSample=[sumSample], lenListSample=lenListWord, coefficient=0.4)
+    #         # print(threshold_2)
+
+    #         # wordTimeBorders = self._splitContinuousWord(location, int(sizeWindow * _SECOND_TO_MILLISECOND) , threshold_2, wordTimeBorders)
+    #         wordTimeBorders = self._splitContinuousWord(location, sizeWindowContinuousWord, threshold_2, wordTimeBorders)
+
+    #         for j, time in enumerate(wordTimeBorders):
+    #             # print(f'ready: {time}')
+    #             wordTimeBorders[j] = (start + (time[0] * _SECOND_TO_MILLISECOND / self._audio.sampleRate), start + (time[1] * _SECOND_TO_MILLISECOND / self._audio.sampleRate))
+        
+    #         fragment[i] = wordTimeBorders
+
+    #     # print(fragment)
+
+    #     all_timing_points = [(int(item[0]), int(item[1])) for sublist in fragment for item in sublist]
+
+    #     all_timing_points = set(all_timing_points)
+    #     # Сортировка временных точек по времени начала слова
+    #     sorted_timing_points = sorted(all_timing_points, key=lambda x: int(x[0]))
+    #     sorted_timing_points.append((float('inf'), float('inf')))
+
+    #     print(sorted_timing_points)
+
+    #     i = 1
+    #     while i < len(sorted_timing_points) - 1:
+    #         nextFlag = True
+    #         while nextFlag and i < len(sorted_timing_points) - 1:
+    #             if sorted_timing_points[i][0] < sorted_timing_points[i - 1][1] and sorted_timing_points[i][1] < sorted_timing_points[i - 1][1]:
+    #                 del sorted_timing_points[i]
+    #                 i -= 1
+    #             elif sorted_timing_points[i][0] < sorted_timing_points[i - 1][1] and sorted_timing_points[i][1] > sorted_timing_points[i + 1][0] and sorted_timing_points[i][1] < sorted_timing_points[i + 1][1]:
+    #                 # finish = sorted_timing_points[i + 1][1]
+    #                 del sorted_timing_points[i]
+    #                 i -= 1
+    #             elif sorted_timing_points[i][0] >= sorted_timing_points[i + 1][0] and sorted_timing_points[i][1] <= sorted_timing_points[i + 1][1]:
+    #                 del sorted_timing_points[i]
+    #                 i -= 1
+    #             else:
+    #                 nextFlag = False
+    #             i += 1
+        
+    #     del sorted_timing_points[-1]
+
+
+
+    #     # Объединение пересекающихся временных точек
+
+
+    #     # final_timing_points = [sorted_timing_points[0]]
+    #     # for start, end in sorted_timing_points[1:]:
+            
+    #         # prev_start, prev_end = final_timing_points[-1]
+    #         # if start < prev_end:  # Если новая временная точка пересекается с предыдущей
+    #         #     final_timing_points[-1] = (prev_start, max(end, prev_end))  # Объединяем их
+    #         # else:
+    #         #     final_timing_points.append((start, end))
+
+    #     return sorted_timing_points
+
+
+        
+        
+
+
+
+
 
 if __name__=='__main__':
 
@@ -213,9 +317,12 @@ if __name__=='__main__':
     
 
 
-    # bounds = search.searchWordsInAudioFragment(start=0, finish=audio.audioData.duration_seconds, sizeWindowSilence=int(150*audio.sampleRate / _SECOND_TO_MILLISECOND), sizeWindowContinuousWord=int(100*audio.sampleRate / _SECOND_TO_MILLISECOND))
+    # bounds = search.searchWordsInAudioFragment(start=0, finish=audio.audioData.duration_seconds, sizeWindowSilence=int(150*audio.sampleRate / _SECOND_TO_MILLISECOND), sizeWindowContinuousWord=int(78*audio.sampleRate / _SECOND_TO_MILLISECOND))
+    # bounds = search.searchWordsInAudioFragment(start=0, finish=audio.audioData.duration_seconds)
+    #  bounds = search.createSlice(start=0, finish=audio.audioData.duration_seconds, sizeWindowSilence=int(200*audio.sampleRate / _SECOND_TO_MILLISECOND), sizeWindowContinuousWord=int(78*audio.sampleRate / _SECOND_TO_MILLISECOND))
+    
+    
     # print(f'\n----\nall: {len(bounds)}\n{bounds}')
-    # search.searchWordsInAudioFragment(0, -1)
     
     # search.getWavWord(wordTimeBorders=bounds)
 
@@ -223,7 +330,9 @@ if __name__=='__main__':
 
     for time in [(0.0, 1.425), (4.365, 5.415), (7.260000000000001, 8.13), (9.375, 10.155000000000001), (12.000000000000002, 13.005)]:
         print(f'\n---------------------new {time}---------------')
-        bounds = search.searchWordsInAudioFragment(start=time[0], finish=time[1], sizeWindowSilence=int(150*audio.sampleRate / _SECOND_TO_MILLISECOND), sizeWindowContinuousWord=int(78*audio.sampleRate / _SECOND_TO_MILLISECOND))
+        bounds = search.searchWordsInAudioFragment(start=time[0], finish=time[1])
+
+        # bounds = search.searchWordsInAudioFragment(start=time[0], finish=time[1], sizeWindowSilence=int(150*audio.sampleRate / _SECOND_TO_MILLISECOND), sizeWindowContinuousWord=int(78*audio.sampleRate / _SECOND_TO_MILLISECOND))
         print(f'len {len(bounds)}: time {bounds}')
         search.getWavWord(wordTimeBorders=bounds)
 
