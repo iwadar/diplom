@@ -237,17 +237,19 @@ class Compare:
         maxMatch, timeMatch = 0.0, (0, 0)
         for time in listWordBounds:
             # print(f'frames: {int(time[0] / coefficientTimeToMfccIndex)}: {ceil(time[1] / coefficientTimeToMfccIndex)} ')
-            _ = self.crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
-            print(_, time)
+            # _ = self.crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
+            _ = self._crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
+            
+            # print(_, time)
             if _ >= _WORD_PRESENCE_TRESHOLDER:
                 listTimeInterval.append((time[0], time[1], _))
-            elif _ > maxMatch:
-                    maxMatch = _
-                    timeMatch = time
-        if listTimeInterval:
-            return listTimeInterval
-        else:
-            return [(timeMatch[0], timeMatch[1], maxMatch)]
+            # elif _ > maxMatch:
+            #         maxMatch = _
+            #         timeMatch = time
+        # if listTimeInterval:
+        return listTimeInterval
+        # else:
+        #     return []
         
 
 # if __name__=='__main__':

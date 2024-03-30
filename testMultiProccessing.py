@@ -49,13 +49,22 @@ from databases import *
 directoryWithAudio = '/home/dasha/python_diplom/wav/'
 
 def bla(listArgument):
-    return (listArgument[0], compare.crossValidationLongAudio(referenceFrames=listArgument[1], userFrames=listArgument[2], coefIndexToSec=listArgument[3]))
+
+    listTimes = compare.crossValidationLongAudio(referenceFrames=listArgument[1], userFrames=listArgument[2], coefIndexToSec=listArgument[3])
+    temporary = []
+    for time in listTimes:
+        temporary.extend(segmentation.searchWordsInAudioFragment(start=time[0], finish=time[1]))
+    listTimes = compare.getExactLocationWord(temporary, listArgument[1], listArgument[2], listArgument[3])
+    return (listArgument[0], listTimes)
+        
+
+    # return (listArgument[0], compare.crossValidationLongAudio(referenceFrames=listArgument[1], userFrames=listArgument[2], coefIndexToSec=listArgument[3]))
 
 
 
 if __name__=='__main__':
 
-    audio = Audio(directoryWithAudio + 'user_v.2.wav')
+    audio = Audio(directoryWithAudio + 'user_v.1.wav')
     mfcc = MFCC(audio=audio)
     segmentation = SegmentationWord(audio=audio)
     compare = Compare()
@@ -89,7 +98,44 @@ if __name__=='__main__':
     with Pool() as p:
         results = p.map(bla, listToProcess)
 
+    tempDict = dict()
     for result in results:
-        dictWordAndTime[result[0]] = result[1]
+        # dictWordAndTime[result[0]] = result[1]
+        for time in result[1]:
+            start, end, score = int(time[0]), int(time[1]), time[2]
 
-    print(dictWordAndTime)
+            if (start, end) in tempDict:
+                if tempDict[(start, end)][0] < score:
+                    tempDict[(start, end)] = (score, result[0])
+            else:
+                tempDict[(start, end)] = (score, result[0])
+
+
+    # print(dictWordAndTime)
+
+    # for name, listTimes in dictWordAndTime.items():
+    #     for time in listTimes:
+
+    #         start, end, score = int(time[0]), int(time[1]), time[2]
+
+    #         if (start, end) in tempDict:
+    #             if tempDict[(start, end)][0] < score:
+    #                 tempDict[(start, end)] = (score, name)
+    #         else:
+    #             tempDict[(start, end)] = (score, name)
+
+    dictWordAndTime.clear()
+
+    for key, value in tempDict.items():
+        if value[1] not in dictWordAndTime:
+            dictWordAndTime[value[1]] = []
+        
+        dictWordAndTime[value[1]].append((key[0], key[1], value[0]))
+
+    for name, listTimes in dictWordAndTime.items():
+        for time in listTimes:
+            trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
+            trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{int(time[0])}:{int(time[1])}.wav", format="wav")
+
+
+    print(f'-------------------------------\nlaaast: {dictWordAndTime}')

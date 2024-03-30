@@ -128,7 +128,7 @@ class SegmentationWord:
 
         for i in range(len(duration) - 1):
             if duration[i] < difference <= duration[i + 1]:
-                sizeWindowSilence, sizeWindowContinuousWord = int(self.dictSizeWindow[duration[i + 1]][0] * audio.sampleRate / _SECOND_TO_MILLISECOND), int(self.dictSizeWindow[duration[i + 1]][1] * audio.sampleRate / _SECOND_TO_MILLISECOND)
+                sizeWindowSilence, sizeWindowContinuousWord = int(self.dictSizeWindow[duration[i + 1]][0] * self._audio.sampleRate / _SECOND_TO_MILLISECOND), int(self.dictSizeWindow[duration[i + 1]][1] * self._audio.sampleRate / _SECOND_TO_MILLISECOND)
                 break
         # print(len(fragment))
         threshold_1 = self._calculateThreshold(listSample=fragment, lenListSample=len(fragment), coefficient=0.22)

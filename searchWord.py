@@ -37,7 +37,7 @@ def connectWordTime(listWordTimeBorders):
 
 if __name__=='__main__':
 
-    audio = Audio('/home/dasha/python_diplom/wav/user_v.2.wav')
+    audio = Audio('/home/dasha/python_diplom/wav/user_v.9.wav')
     mfcc = MFCC(audio=audio)
     segmentation = SegmentationWord(audio=audio)
     compare = Compare()
@@ -64,23 +64,26 @@ if __name__=='__main__':
 
     print('*'*15)
 
-    sys.exit()
+    # sys.exit()
     # dictWordAndTime['imba'] = [(0.915, 6.945, 0.8250500038823403)]
     # теперь разделяем на сегменты части
     for name, listTimes in dictWordAndTime.items():
         temporary = []
         # print(name)
         for time in listTimes:
-            temporary.extend(segmentation.searchWordsInAudioFragment(start=time[0], finish=time[1], sizeWindow=a[name]))
+            temporary.extend(segmentation.searchWordsInAudioFragment(start=time[0], finish=time[1]))
         # print(f'{name}: {temporary}')
-        # dictWordAndTime[name] = temporary
+        dictWordAndTime[name] = temporary
             
-        dictWordAndTime[name] = connectWordTime(temporary)
+        # dictWordAndTime[name] = connectWordTime(temporary)
         # print(f'{name}: {dictWordAndTime[name]}')
         # print('-'*15)
 
 
     print('-'*15 + f'\nSegment\n {dictWordAndTime}\n')
+
+    print('**'*12)
+
     
     # sys.exit()
     for name, listTimes in dictWordAndTime.items():
@@ -88,13 +91,48 @@ if __name__=='__main__':
         dictWordAndTime[name] = compare.getExactLocationWord(listTimes, dictionaryReference[name], mfcc.listFrames, mfcc.lengthMs - mfcc.shiftMs)
         
 
-        for time in dictWordAndTime[name]:
-                trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
-                trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{time[0]}:{time[1]}.wav", format="wav")
+    tempDict = dict()
+    for name, listTimes in dictWordAndTime.items():
+        for time in listTimes:
+
+            start, end, score = int(time[0]), int(time[1]), time[2]
+
+            if (start, end) in tempDict:
+                if tempDict[(start, end)][0] < score:
+                    tempDict[(start, end)] = (score, name)
+            else:
+                tempDict[(start, end)] = (score, name)
+
+    dictWordAndTime.clear()
+
+    for key, value in tempDict.items():
+        if value[1] not in dictWordAndTime:
+            dictWordAndTime[value[1]] = []
+        
+        dictWordAndTime[value[1]].append((key[0], key[1], value[0]))
+
+
+        # seen_times = set()
+        # to_remove = []
+        # for i, tpl in enumerate(dictWordAndTime[key]):
+        #     start, end, score = tpl
+        #     if start in seen_times or end in seen_times:
+        #         to_remove.append(i)
+        #     else:
+        #         seen_times.add(start)
+        #         seen_times.add(end)
+        # for i in reversed(to_remove):
+        #     del dictWordAndTime[key][i]
+            
+    for name, listTimes in dictWordAndTime.items():
+        for time in listTimes:
+            trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
+            trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{int(time[0])}:{int(time[1])}.wav", format="wav")
+
 
     print(f'-------------------------------\nlaaast: {dictWordAndTime}')
 
-
+    # print(dictionaryReference)
 
     # print(os.listdir(directoryWithAudio))
     # for file in os.listdir(directoryWithAudio):
