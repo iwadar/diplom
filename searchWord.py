@@ -37,7 +37,9 @@ def connectWordTime(listWordTimeBorders):
 
 if __name__=='__main__':
 
-    audio = Audio('/home/dasha/python_diplom/wav/user_v.9.wav')
+    # audio = Audio('/home/dasha/python_diplom/wav/user_v.9.wav')
+    audio = Audio()
+
     mfcc = MFCC(audio=audio)
     segmentation = SegmentationWord(audio=audio)
     compare = Compare()
@@ -53,8 +55,34 @@ if __name__=='__main__':
 
     # загрузили аудио от юзера
     # audio.updateData('/home/dasha/python_diplom/wav/user_v.1.wav')
-    mfcc.calculateMFCC()
+    # mfcc.calculateMFCC()
 
+    # Test
+    dictWordAndWindows = {'medium': [], '1/4 * max': [], '1/3 * max': [], '1/2 * max': [], '2/3 * max': []}
+
+    for file in ['user_v.1.wav', 'user_v.2.wav', 'user_v.3.wav', 'user_v.9.wav', 'user_v.10.wav']:
+        audio.updateData(directoryWithAudio + file)
+        mfcc.calculateMFCC()
+        for name, frames in dictionaryReference.items():
+            print('-'*30)
+            print(name)
+            temp = compare.testForSizeWindow(referenceFrames=frames, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs)
+            for i, res in enumerate(temp):
+                if i == 0:
+                    dictWordAndWindows['medium'].append(res)
+                elif i == 1:
+                    dictWordAndWindows['1/4 * max'].append(res)
+                elif i == 2:
+                    dictWordAndWindows['1/3 * max'].append(res)
+                elif i == 3:
+                    dictWordAndWindows['1/2 * max'].append(res)
+                elif i == 4:
+                    dictWordAndWindows['2/3 * max'].append(res)
+    
+    for key, value in dictWordAndWindows.items():
+        print(f'{key} : {np.std(value)}')
+
+    sys.exit()
     # посчитали для каждого референса, где че нашли
     for name, frames in dictionaryReference.items():
 

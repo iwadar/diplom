@@ -1,10 +1,10 @@
 from audio import *
 from scipy.spatial.distance import euclidean, cosine
+import scipy.stats as stats
 from dtw import dtw
 from math import ceil
 # import matplotlib.pyplot as plt
 
-import scipy.stats as stats
 
 _ALLOWABLE_ERROR = 20
 _STANDART_STEP = 1/16
@@ -251,6 +251,95 @@ class Compare:
         # else:
         #     return []
         
+
+
+
+    def testForSizeWindow(self, referenceFrames, userFrames, coefIndexToSec):
+        """
+        На вход: referenceFrames - список из списков MFCC коэффициентов
+        """
+
+        index, listTimeInterval = 0, []
+
+        sizeReference = 0
+
+        maxSize = 0
+
+        for ref in referenceFrames:
+            # print(len(ref[0]))
+            if len(ref[0]) > maxSize:
+                maxSize = len(ref[0])
+            sizeReference += len(ref[0])
+
+        sizeReference = int(sizeReference / len(referenceFrames))
+        # print(maxSize)
+        listSizeReference = [sizeReference, int(maxSize / 4), int(maxSize / 3), int(maxSize / 2), int(maxSize * 2 / 3)]
+        print(listSizeReference)
+
+        for j, size in enumerate(listSizeReference):
+
+            arrayAverage = []
+            # print(sizeReference)
+
+            i, rating, count = 0, 0.0, 0
+            startIndex, endIndex = 0, 0
+
+            maxRes = 0.0
+
+            while i < len(userFrames):
+                endSlice = i + size
+                # print(f'i = {i}, end = {endSlice}')
+
+                result = self._crossValidation(referenceFrames=referenceFrames, userFrames=userFrames[i:endSlice])
+                arrayAverage.append(result)
+
+        # РАСКОММЕНТИТЬ
+                # if result > maxRes:
+                #     maxRes = result
+
+                # if result >= _WORD_PRESENCE_TRESHOLDER and i <= endIndex:
+                #     # rating += result
+                #     endIndex = endSlice
+                #     # count += 1
+                # elif i > endIndex:
+                #     if startIndex != endIndex:
+                #         listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec))
+                #         # listTimeInterval.append((startIndex, endIndex))
+                                        
+                #     if result >= _WORD_PRESENCE_TRESHOLDER:
+                #         # print(f'here {i}, {endSlice}')
+                #         startIndex, endIndex = i, endSlice
+                #     else:
+                #         startIndex, endIndex = i, i
+                    # rating, count = 0.0, 0
+                        
+        # КОНЕЦ РАСКОММЕНТИТЬ
+
+
+                # print(f'i = {int(i*coefIndexToSec*1000)}, end = {int(endSlice*coefIndexToSec*1000)}, match = {result}')
+
+                if abs(_WORD_PRESENCE_TRESHOLDER - result) < 0.1:
+                    i += 2
+                else:
+                    i += ceil(_STANDART_STEP * size)
+            # РАСКОММЕНТИТЬ
+
+            # if startIndex != endIndex:
+            #     # listTimeInterval.append((startIndex, endIndex))
+            #     listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec))
+            
+            listSizeReference[j] = sum(arrayAverage) / len(arrayAverage)
+        print(listSizeReference)
+            
+
+        # здесь мы возвращаем сейчас время в секундах
+        # print(f'index: {index}, indexEnd: {index + sizeReference}')
+        # print(len(userFrames))
+        # print('--'*15)
+        # print(maxRes)
+        return listSizeReference
+
+
 
 # if __name__=='__main__':
 
