@@ -2,6 +2,7 @@ from segmentationAudio import *
 import os, sys
 import copy
 from databases import *
+import itertools
 
 directoryWithAudio = '/home/dasha/python_diplom/wav/'
 directoryWithReference = '/home/dasha/python_diplom/reference/' 
@@ -37,8 +38,8 @@ def connectWordTime(listWordTimeBorders):
 
 if __name__=='__main__':
 
-    # audio = Audio('/home/dasha/python_diplom/wav/user_v.9.wav')
-    audio = Audio()
+    audio = Audio('/home/dasha/python_diplom/wav/user_v.1.wav')
+    # audio = Audio()
 
     mfcc = MFCC(audio=audio)
     segmentation = SegmentationWord(audio=audio)
@@ -57,30 +58,85 @@ if __name__=='__main__':
     # audio.updateData('/home/dasha/python_diplom/wav/user_v.1.wav')
     # mfcc.calculateMFCC()
 
-    # Test
-    dictWordAndWindows = {'medium': [], '1/4 * max': [], '1/3 * max': [], '1/2 * max': [], '2/3 * max': []}
+    ############################
 
-    for file in ['user_v.1.wav', 'user_v.2.wav', 'user_v.3.wav', 'user_v.9.wav', 'user_v.10.wav']:
-        audio.updateData(directoryWithAudio + file)
-        mfcc.calculateMFCC()
-        for name, frames in dictionaryReference.items():
-            print('-'*30)
-            print(name)
-            temp = compare.testForSizeWindow(referenceFrames=frames, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs)
-            for i, res in enumerate(temp):
-                if i == 0:
-                    dictWordAndWindows['medium'].append(res)
-                elif i == 1:
-                    dictWordAndWindows['1/4 * max'].append(res)
-                elif i == 2:
-                    dictWordAndWindows['1/3 * max'].append(res)
-                elif i == 3:
-                    dictWordAndWindows['1/2 * max'].append(res)
-                elif i == 4:
-                    dictWordAndWindows['2/3 * max'].append(res)
+    # Test подбор размера окна для референса
+
+    # dictWordAndWindows = {'medium': [], '1/4 * max': [], '1/3 * max': [], '1/2 * max': [], '2/3 * max': []}
+
+    # for file in ['user_v.1.wav', 'user_v.2.wav', 'user_v.3.wav', 'user_v.9.wav', 'user_v.10.wav']:
+    #     audio.updateData(directoryWithAudio + file)
+    #     mfcc.calculateMFCC()
+    #     for name, frames in dictionaryReference.items():
+    #         print('-'*30)
+    #         print(name)
+    #         temp = compare.testForSizeWindow(referenceFrames=frames, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs)
+    #         for i, res in enumerate(temp):
+    #             if i == 0:
+    #                 dictWordAndWindows['medium'].append(res)
+    #             elif i == 1:
+    #                 dictWordAndWindows['1/4 * max'].append(res)
+    #             elif i == 2:
+    #                 dictWordAndWindows['1/3 * max'].append(res)
+    #             elif i == 3:
+    #                 dictWordAndWindows['1/2 * max'].append(res)
+    #             elif i == 4:
+    #                 dictWordAndWindows['2/3 * max'].append(res)
     
-    for key, value in dictWordAndWindows.items():
-        print(f'{key} : {np.std(value)}')
+    # for key, value in dictWordAndWindows.items():
+    #     print(f'{key} : {np.std(value)}')
+
+    # Конец теста
+
+
+
+    ############################
+    # Test подбор порога
+
+
+    listMaxWeight = []
+    for name, frames in dictionaryReference.items():
+        print(name)
+        for fr in frames:
+            listMaxWeight.append(fr[1])
+        break
+    
+    dictRange = dict()
+
+    prev = 0.15
+    for maxWeight in listMaxWeight:
+        temp = []
+        i = prev
+        while i < maxWeight:
+            temp.append(i)
+            i = round(i + 0.05, 2)
+        prev = maxWeight
+        dictRange[maxWeight] = temp
+
+
+    # keys = dictRange.keys()
+    weight_combinations = list(itertools.product(*[dictRange[key] for key in dictRange.keys()]))
+    print(weight_combinations)
+    mfcc.calculateMFCC()
+
+    for name, frames in dictionaryReference.items():
+        for combiantion in weight_combinations:
+            print(f'\nCombination {combiantion}')
+            listFramesAndCombination = []
+            for i, fr in enumerate(frames):
+                listMFCCRef = fr[0]
+                listFramesAndCombination.append((listMFCCRef, combiantion[i]))
+            compare.crossValidationLongAudio(referenceFrames=listFramesAndCombination, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs)
+            print('***'*15)
+            # break
+
+            
+    
+    # print(weight_combinations)
+
+
+
+
 
     sys.exit()
     # посчитали для каждого референса, где че нашли
