@@ -4,6 +4,7 @@ import scipy.stats as stats
 from dtw import dtw
 from math import ceil
 # import matplotlib.pyplot as plt
+import statistics
 
 
 _ALLOWABLE_ERROR = 20
@@ -182,29 +183,29 @@ class Compare:
             result = self._crossValidation(referenceFrames=referenceFrames, userFrames=userFrames[i:endSlice])
 
     # РАСКОММЕНТИТЬ
-            if result > maxRes:
-                maxRes = result
+            # if result > maxRes:
+            #     maxRes = result
 
-            if result >= _WORD_PRESENCE_TRESHOLDER and i <= endIndex:
-                # rating += result
-                endIndex = endSlice
-                # count += 1
-            elif i > endIndex:
-                if startIndex != endIndex:
-                    listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec))
-                    # listTimeInterval.append((startIndex, endIndex))
+            # if result >= _WORD_PRESENCE_TRESHOLDER and i <= endIndex:
+            #     # rating += result
+            #     endIndex = endSlice
+            #     # count += 1
+            # elif i > endIndex:
+            #     if startIndex != endIndex:
+            #         listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec))
+            #         # listTimeInterval.append((startIndex, endIndex))
                                     
-                if result >= _WORD_PRESENCE_TRESHOLDER:
-                    # print(f'here {i}, {endSlice}')
-                    startIndex, endIndex = i, endSlice
-                else:
-                    startIndex, endIndex = i, i
-                # rating, count = 0.0, 0
+            #     if result >= _WORD_PRESENCE_TRESHOLDER:
+            #         # print(f'here {i}, {endSlice}')
+            #         startIndex, endIndex = i, endSlice
+            #     else:
+            #         startIndex, endIndex = i, i
+            #    # rating, count = 0.0, 0
                     
     # КОНЕЦ РАСКОММЕНТИТЬ
 
 
-            # print(f'i = {int(i*coefIndexToSec*1000)}, end = {int(endSlice*coefIndexToSec*1000)}, match = {result}')
+            print(f'i = {int(i*coefIndexToSec*1000)}, end = {int(endSlice*coefIndexToSec*1000)}, match = {result}')
 
             if abs(_WORD_PRESENCE_TRESHOLDER - result) < 0.1:
                 i += 2
@@ -225,6 +226,78 @@ class Compare:
         return listTimeInterval
 
 
+    def _crossValidationLongAudio(self, referenceFrames, userFrames, coefIndexToSec):
+        """
+        Функция сама считает пороговое значение
+        На вход: referenceFrames - список из списков MFCC коэффициентов
+        """
+        listTimeInterval, listLocalDTW, listIndex = [], [], []
+
+        sizeReference = 0
+
+        for ref in referenceFrames:
+            # print(len(ref[0]))
+            # if len(ref) > sizeReference:
+            #     sizeReference = len(ref)
+            sizeReference += len(ref[0])
+
+        sizeReference = int(sizeReference / len(referenceFrames))
+
+        # print(sizeReference)
+
+        i, startIndex, endIndex = 0, 0, 0
+
+        maxRes = 0.0
+
+        while i < len(userFrames):
+            endSlice = i + sizeReference
+            # print(f'i = {i}, end = {endSlice}')
+
+            result = self._crossValidation(referenceFrames=referenceFrames, userFrames=userFrames[i:endSlice])
+            listIndex.append((i, endSlice))
+            if listLocalDTW and abs(listLocalDTW[-1] - result) < 0.1:
+                i += 3
+            else:
+                i += ceil(_STANDART_STEP * sizeReference)
+            listLocalDTW.append(result)
+
+        while -1 in listLocalDTW:
+            listLocalDTW.remove(-1)
+        treshold = statistics.median(listLocalDTW)
+
+        print(treshold)
+
+        treshold = round(treshold * 1.05, 2)
+        print(treshold)
+        print('-'*15)
+
+        for i, rating in enumerate(listLocalDTW):
+            # print(rating)
+            # print(f'i = {int(listIndex[i][0]*coefIndexToSec*1000)}, end = {int(listIndex[i][1]*coefIndexToSec*1000)}, match = {rating}')
+
+            curIndex = listIndex[i][0]
+            if rating >= treshold and curIndex <= endIndex:
+                endIndex = listIndex[i][1]
+            elif curIndex > endIndex:
+                if startIndex != endIndex:
+                    listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec))
+                    # listTimeInterval.append((startIndex, endIndex))
+                                    
+                if rating >= treshold:
+                    # print(f'here {i}, {endSlice}')
+                    startIndex, endIndex = curIndex, listIndex[i][1]
+                else:
+                    startIndex, endIndex = curIndex, curIndex
+
+        if startIndex != endIndex:
+            # listTimeInterval.append((startIndex, endIndex))
+            listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec))
+               
+        return listTimeInterval
+
+
+
+
     def getExactLocationWord(self, listWordBounds, referenceFrames, userFrames, coefficientIndexToSec):
         """
         Функция ищет точное место запретного слова
@@ -240,7 +313,7 @@ class Compare:
             # _ = self.crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
             _ = self._crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
             
-            # print(_, time)
+            print(_, time)
             if _ >= _WORD_PRESENCE_TRESHOLDER:
                 listTimeInterval.append((time[0], time[1], _))
             # elif _ > maxMatch:
@@ -252,6 +325,42 @@ class Compare:
         #     return []
         
 
+
+    def _getExactLocationWord(self, listWordBounds, referenceFrames, userFrames, coefficientIndexToSec):
+        """
+        Функция ищет точное место запретного слова - доп параметр - пороговое значение
+        На вход: список tuple (начало слова, конец слова) в миллисекундах; референсное MFCC; коээфициент, которым перевели индексы в секунды
+        На выход: тайминг слова
+        """
+        listTimeInterval, listLocalDTW = [], []
+        coefficientTimeToMfccIndex = 1000 * coefficientIndexToSec
+        # print('last find')
+        maxMatch, timeMatch = 0.0, (0, 0)
+
+        for time in listWordBounds:
+            # print(f'frames: {int(time[0] / coefficientTimeToMfccIndex)}: {ceil(time[1] / coefficientTimeToMfccIndex)} ')
+            # _ = self.crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
+            _ = self._crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
+            listLocalDTW.append(_)
+            print(_, time)
+            # if _ >= _WORD_PRESENCE_TRESHOLDER:
+            #     listTimeInterval.append((time[0], time[1], _))
+            # elif _ > maxMatch:
+            #         maxMatch = _
+            #         timeMatch = time
+        # if listTimeInterval:
+        treshold = statistics.mean(listLocalDTW)
+        print(treshold)
+
+        for i, rating in enumerate(listLocalDTW):
+            if rating >= treshold:
+                listTimeInterval.append((listWordBounds[i][0], listWordBounds[i][1], rating))
+
+
+        return listTimeInterval
+        # else:
+        #     return []
+     
 
 
     def testForSizeWindow(self, referenceFrames, userFrames, coefIndexToSec):

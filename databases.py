@@ -82,7 +82,7 @@ class Database:
     def getMFCCFromDB(self, categoryreplacement = 'categoryreplacement', referenceword='referenceword'):
         self.cursor.execute(f"""SELECT {categoryreplacement}.word, {referenceword}.mfcc, {referenceword}.weight FROM {categoryreplacement}, {referenceword}
                                 WHERE {referenceword}.categoryid = {categoryreplacement}.id
-                                ORDER BY {categoryreplacement}.word""")
+                                ORDER BY {categoryreplacement}.word, {referenceword}.weight""")
 
         rows = self.cursor.fetchall()
         dictNameAndMfcc = dict()
@@ -129,8 +129,8 @@ class Database:
         word, weight = word_weight[0], float(word_weight[1])
 
         # 
-        if word != 'imba':
-            return
+        # if word != 'imba':
+        #     return
         # 
 
         if weight > 1.0 or weight < 0.0:
@@ -152,14 +152,15 @@ if __name__=='__main__':
 
     audio = Audio()
     mfcc = MFCC(audio=audio)
-    file = 'imba_0.59.wav'
+    # file = 'imba_0.59.wav'
 
-    # for file in os.listdir(directoryWithReference):
-
-    audio.updateData(directoryWithReference + file)
-    mfcc.calculateMFCC()
-    mfcc.listFrames = stats.zscore(mfcc.listFrames)
-    db.insertNewReferenceToDb(file, mfcc.listFrames)
+    for file in os.listdir(directoryWithReference):
+        if os.path.isfile(directoryWithReference + file):
+            print(directoryWithReference + file)
+            audio.updateData(directoryWithReference + file)
+            mfcc.calculateMFCC()
+            mfcc.listFrames = stats.zscore(mfcc.listFrames)
+            db.insertNewReferenceToDb(file, mfcc.listFrames)
     db.disconnect()
     
 #     #     ## Create a semi-complex list to pickle

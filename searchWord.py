@@ -38,7 +38,7 @@ def connectWordTime(listWordTimeBorders):
 
 if __name__=='__main__':
 
-    audio = Audio('/home/dasha/python_diplom/wav/user_v.1.wav')
+    audio = Audio('/home/dasha/python_diplom/wav/user_v.3.wav')
     # audio = Audio()
 
     mfcc = MFCC(audio=audio)
@@ -56,7 +56,7 @@ if __name__=='__main__':
 
     # загрузили аудио от юзера
     # audio.updateData('/home/dasha/python_diplom/wav/user_v.1.wav')
-    # mfcc.calculateMFCC()
+    mfcc.calculateMFCC()
 
     ############################
 
@@ -94,56 +94,61 @@ if __name__=='__main__':
     # Test подбор порога
 
 
-    listMaxWeight = []
-    for name, frames in dictionaryReference.items():
-        print(name)
-        for fr in frames:
-            listMaxWeight.append(fr[1])
-        break
+    # listMaxWeight = []
+    # for name, frames in dictionaryReference.items():
+    #     print(name)
+
+    #     if name == 'imba':
+    #         # print(name)
+    #         for fr in frames:
+    #             listMaxWeight.append(fr[1])
+    #         break
     
-    dictRange = dict()
+    # print(listMaxWeight)
+    # dictRange = dict()
 
-    prev = 0.15
-    for maxWeight in listMaxWeight:
-        temp = []
-        i = prev
-        while i < maxWeight:
-            temp.append(i)
-            i = round(i + 0.05, 2)
-        prev = maxWeight
-        dictRange[maxWeight] = temp
+    # prev = 0.15
+    # for maxWeight in listMaxWeight:
+    #     temp = []
+    #     i = prev
+    #     while i < maxWeight:
+    #         temp.append(i)
+    #         i = round(i + 0.1, 2)
+    #     prev = maxWeight
+    #     dictRange[maxWeight] = temp
 
 
-    # keys = dictRange.keys()
-    weight_combinations = list(itertools.product(*[dictRange[key] for key in dictRange.keys()]))
-    print(weight_combinations)
-    mfcc.calculateMFCC()
+    # # keys = dictRange.keys()
+    # weight_combinations = list(itertools.product(*[dictRange[key] for key in dictRange.keys()]))
+    # print(weight_combinations)
+    # mfcc.calculateMFCC()
 
-    for name, frames in dictionaryReference.items():
-        for combiantion in weight_combinations:
-            print(f'\nCombination {combiantion}')
-            listFramesAndCombination = []
-            for i, fr in enumerate(frames):
-                listMFCCRef = fr[0]
-                listFramesAndCombination.append((listMFCCRef, combiantion[i]))
-            compare.crossValidationLongAudio(referenceFrames=listFramesAndCombination, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs)
-            print('***'*15)
-            # break
+    # for name, frames in dictionaryReference.items():
+    #     for combiantion in weight_combinations:
+    #         print(f'\nCombination {combiantion}')
+    #         listFramesAndCombination = []
+    #         for i, fr in enumerate(frames):
+    #             listMFCCRef = fr[0]
+    #             listFramesAndCombination.append((listMFCCRef, combiantion[i]))
+    #         compare.crossValidationLongAudio(referenceFrames=listFramesAndCombination, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs)
+    #         print('***'*15)
+    #         # break
 
             
     
     # print(weight_combinations)
 
+    # The end test
 
 
 
-
-    sys.exit()
-    # посчитали для каждого референса, где че нашли
+    # sys.exit()
+    # # посчитали для каждого референса, где че нашли
     for name, frames in dictionaryReference.items():
 
         print('\n' + name)
-        dictWordAndTime[name] = compare.crossValidationLongAudio(referenceFrames=frames, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs)
+        dictWordAndTime[name] = compare._crossValidationLongAudio(referenceFrames=frames, userFrames=mfcc.listFrames, coefIndexToSec=mfcc.lengthMs-mfcc.shiftMs)
+        # break
     print(dictWordAndTime)
 
     print('*'*15)
@@ -168,11 +173,12 @@ if __name__=='__main__':
 
     print('**'*12)
 
+
     
     # sys.exit()
     for name, listTimes in dictWordAndTime.items():
         print(f'-------------------------------\n{name}')
-        dictWordAndTime[name] = compare.getExactLocationWord(listTimes, dictionaryReference[name], mfcc.listFrames, mfcc.lengthMs - mfcc.shiftMs)
+        dictWordAndTime[name] = compare._getExactLocationWord(listTimes, dictionaryReference[name], mfcc.listFrames, mfcc.lengthMs - mfcc.shiftMs)
         
 
     tempDict = dict()
@@ -208,10 +214,13 @@ if __name__=='__main__':
         # for i in reversed(to_remove):
         #     del dictWordAndTime[key][i]
             
-    for name, listTimes in dictWordAndTime.items():
-        for time in listTimes:
-            trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
-            trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{int(time[0])}:{int(time[1])}.wav", format="wav")
+
+
+    # Раскоменть        
+    # for name, listTimes in dictWordAndTime.items():
+    #     for time in listTimes:
+    #         trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
+    #         trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{int(time[0])}:{int(time[1])}.wav", format="wav")
 
 
     print(f'-------------------------------\nlaaast: {dictWordAndTime}')
