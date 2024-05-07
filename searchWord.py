@@ -3,6 +3,7 @@ import os, sys
 import copy
 from databases import *
 import itertools
+from generateWord import *
 
 directoryWithAudio = '/home/dasha/python_diplom/wav/'
 directoryWithReference = '/home/dasha/python_diplom/reference/' 
@@ -37,13 +38,15 @@ def connectWordTime(listWordTimeBorders):
 
 
 if __name__=='__main__':
-
-    audio = Audio('/home/dasha/python_diplom/wav/user_v.3.wav')
+    onlyFileName = 'user_v.2'
+    fileName = '/home/dasha/python_diplom/wav/user_v.2.wav'
+    audio = Audio(fileName)
     # audio = Audio()
 
     mfcc = MFCC(audio=audio)
     segmentation = SegmentationWord(audio=audio)
     compare = Compare()
+    generatorWord = GeneratorAudio(speaker=fileName)
 
 
     dictWordAndTime = {}
@@ -51,6 +54,7 @@ if __name__=='__main__':
     db = Database()
     db.connect()
     dictionaryReference = db.getMFCCFromDB()
+    dictionaryReplacement = db.getDictCategoryReplacement()
     db.disconnect()
 
 
@@ -154,7 +158,6 @@ if __name__=='__main__':
     print('*'*15)
 
     # sys.exit()
-    # dictWordAndTime['imba'] = [(0.915, 6.945, 0.8250500038823403)]
     # теперь разделяем на сегменты части
     for name, listTimes in dictWordAndTime.items():
         temporary = []
@@ -185,7 +188,7 @@ if __name__=='__main__':
     for name, listTimes in dictWordAndTime.items():
         for time in listTimes:
 
-            start, end, score = int(time[0]), int(time[1]), time[2]
+            start, end, score = time[0], time[1], time[2]
 
             if (start, end) in tempDict:
                 if tempDict[(start, end)][0] < score:
@@ -195,11 +198,32 @@ if __name__=='__main__':
 
     dictWordAndTime.clear()
 
-    for key, value in tempDict.items():
-        if value[1] not in dictWordAndTime:
-            dictWordAndTime[value[1]] = []
+    tempDict = sorted(tempDict.items())
+    print('Temp dict')
+    print(tempDict)
+    print('---'*15)
+
+
+    print(tempDict)
+    print('-'*12)
+
+    if len(tempDict) > 1:
+        i = 1
+        while i < len(tempDict):
+            if tempDict[i][0][0] < tempDict[i - 1][0][1]:
+                if tempDict[i][1][0] > tempDict[i - 1][1][0]:
+                    del tempDict[i - 1]
+                else:
+                    del tempDict[i]
+            else:
+                i += 1
+    print(tempDict)
+
+    # for key, value in tempDict.items():
+    #     if value[1] not in dictWordAndTime:
+    #         dictWordAndTime[value[1]] = []
         
-        dictWordAndTime[value[1]].append((key[0], key[1], value[0]))
+    #     dictWordAndTime[value[1]].append((key[0], key[1], value[0]))
 
 
         # seen_times = set()
@@ -217,13 +241,31 @@ if __name__=='__main__':
 
 
     # Раскоменть        
-    # for name, listTimes in dictWordAndTime.items():
-    #     for time in listTimes:
-    #         trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
-    #         trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{int(time[0])}:{int(time[1])}.wav", format="wav")
+    for name, listTimes in dictWordAndTime.items():
+        for time in listTimes:
+            trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
+            trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{int(time[0])}:{int(time[1])}.wav", format="wav")
 
 
-    print(f'-------------------------------\nlaaast: {dictWordAndTime}')
+    # print(f'-------------------------------\nlaaast: {dictWordAndTime}')
+
+    begin = 0
+    for time, meta in tempDict:
+        name = meta[1]
+        if isinstance(dictionaryReplacement[name], str):
+            dictionaryReplacement[name] = generatorWord.generateWord(text=dictionaryReplacement[name])
+        s = audio.audioData[begin:time[0]]
+        if begin == 0:
+            newAudio = s
+        else:
+            newAudio += s
+        newAudio += dictionaryReplacement[name]
+
+        # value for next loop
+        begin = time[1]
+
+    # newAudio.append(audio.audioData[begin:])
+    newAudio.export(f"/home/dasha/python_diplom/cut_res/{onlyFileName}_result.wav", format="wav")
 
     # print(dictionaryReference)
 

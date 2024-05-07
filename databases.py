@@ -99,6 +99,19 @@ class Database:
         return dictNameAndMfcc
 
 
+    def getDictCategoryReplacement(self, categoryreplacement = 'categoryreplacement'):
+        self.cursor.execute(f"""SELECT {categoryreplacement}.word, {categoryreplacement}.replacement FROM {categoryreplacement}""")
+
+        rows = self.cursor.fetchall()
+        dictNameAndReplacement = dict()
+
+        # 0 - word, 1 - replacement
+        for each in rows:
+            dictNameAndReplacement[each[0]] = each[1]
+
+        return dictNameAndReplacement
+
+
 
     def isExistWord(self, tableName, word):
 
@@ -144,6 +157,7 @@ class Database:
             idWord = self.insertToCategoryReplacment(tableName='categoryreplacement', word=word)
         
         self.insertToReferenceWord(tableName='referenceword', categoryId=idWord, mfcc=mfccToDb, weight=weight)
+
 
 
 if __name__=='__main__':
