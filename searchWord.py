@@ -38,8 +38,8 @@ def connectWordTime(listWordTimeBorders):
 
 
 if __name__=='__main__':
-    onlyFileName = 'user_v.8'
-    fileName = '/home/dasha/python_diplom/wav/user_v.8.wav'
+    onlyFileName = 'user_v.9'
+    fileName = '/home/dasha/python_diplom/wav/user_v.9.wav'
     audio = Audio(fileName)
     # audio = Audio()
 
@@ -263,7 +263,7 @@ if __name__=='__main__':
 
         # value for next loop
         begin = time[1]
-
+    newAudio += audio.audioData[begin:]
     # newAudio.append(audio.audioData[begin:])
     newAudio.export(f"/home/dasha/python_diplom/cut_res/{onlyFileName}_result.wav", format="wav")
 
