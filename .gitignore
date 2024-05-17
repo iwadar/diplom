@@ -10,3 +10,5 @@
 /wav
 /reference
 *.ini
+algo.txt
+/temp_*

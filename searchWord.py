@@ -38,8 +38,8 @@ def connectWordTime(listWordTimeBorders):
 
 
 if __name__=='__main__':
-    onlyFileName = 'user_v.2'
-    fileName = '/home/dasha/python_diplom/wav/user_v.2.wav'
+    onlyFileName = 'user_v.8'
+    fileName = '/home/dasha/python_diplom/wav/user_v.8.wav'
     audio = Audio(fileName)
     # audio = Audio()
 
