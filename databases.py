@@ -89,13 +89,10 @@ class Database:
 
         # 0 - id category, 1 - mfcc, 2 - weight
         for each in rows:
-            # print(each)
             if each[0] not in dictNameAndMfcc:
                 dictNameAndMfcc[each[0]] = []
-            # dictNameAndMfcc[each[0]].append(pickle.loads(each[1]))
             dictNameAndMfcc[each[0]].append((pickle.loads(each[1]), each[2]))
 
-        # print(dictNameAndMfcc)
         return dictNameAndMfcc
 
 
@@ -166,7 +163,6 @@ if __name__=='__main__':
 
     audio = Audio()
     mfcc = MFCC(audio=audio)
-    # file = 'imba_0.59.wav'
 
     for file in os.listdir(directoryWithReference):
         if os.path.isfile(directoryWithReference + file):
@@ -176,16 +172,3 @@ if __name__=='__main__':
             mfcc.listFrames = stats.zscore(mfcc.listFrames)
             db.insertNewReferenceToDb(file, mfcc.listFrames)
     db.disconnect()
-    
-#     #     ## Create a semi-complex list to pickle
-#     # listToPickle = [(10, 10), (20, 10.0), (1.0, 2.0)]
-
-#     # ## Pickle the list into a string
-#     # pickledList = pickle.dumps(listToPickle)
-
-#     # # db.insertInformationToDB(tableName='test2', name='cring_1', mfcc=pickledList)
-#     # db.selectMFCCFromDB(tableName='test2')
-    # db.getMFCCFromDB()
-
-    
-

@@ -1,8 +1,5 @@
 from segmentationAudio import *
-import os, sys
-import copy
 from databases import *
-import itertools
 from generateWord import *
 
 directoryWithAudio = '/home/dasha/python_diplom/wav/'
@@ -163,7 +160,8 @@ if __name__=='__main__':
         temporary = []
         # print(name)
         for time in listTimes:
-            temporary.extend(segmentation.searchWordsInAudioFragment(start=time[0], finish=time[1]))
+            bla = segmentation.searchWordsInAudioFragment(start=time[0], finish=time[1])
+            temporary.extend(bla)
         # print(f'{name}: {temporary}')
         dictWordAndTime[name] = temporary
             
@@ -241,10 +239,10 @@ if __name__=='__main__':
 
 
     # Раскоменть        
-    for name, listTimes in dictWordAndTime.items():
-        for time in listTimes:
-            trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
-            trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{int(time[0])}:{int(time[1])}.wav", format="wav")
+    # for name, listTimes in dictWordAndTime.items():
+    #     for time in listTimes:
+    #         trimmed_audio = audio.audioData[int(time[0]):ceil(time[1])]
+    #         trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{name}-{int(time[0])}:{int(time[1])}.wav", format="wav")
 
 
     # print(f'-------------------------------\nlaaast: {dictWordAndTime}')

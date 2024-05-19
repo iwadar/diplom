@@ -1,7 +1,14 @@
 import torch
+import time
+import os
 from TTS.api import TTS
 from pydub import AudioSegment
 
+
+
+_START_MUTENESS = 0.1
+_END_MUTENESS = 0.83
+_MILLISECOND = 1000
 # Get device
 # device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -21,15 +28,15 @@ class GeneratorAudio:
         self.tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
         self.speaker = speaker
         self.language = language
-        self.filePath = '/home/dasha/python_diplom/temp_wav/'
-    
+        self.filePath = os.getcwd() + '/temp_wav/'
+        os.makedirs(self.filePath, mode=0o777, exist_ok=True)
     
     def generateWord(self, text):
         word = None
-        fileName = self.filePath + f"{text}.wav"
+        fileName = self.filePath + f"{text + str(time.time())}.wav"
         if self.speaker:
-            # word = self.tts.tts(text=text, speaker_wav=self.speaker, language=self.language)
             self.tts.tts_to_file(text=text, speaker_wav=self.speaker, language=self.language, file_path=fileName)
             word = AudioSegment.from_file(fileName)
-            
+            word = word[word.duration_seconds * _MILLISECOND * _START_MUTENESS:word.duration_seconds * _MILLISECOND * _END_MUTENESS]
+            os.remove(fileName)
         return word

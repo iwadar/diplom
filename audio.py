@@ -3,7 +3,6 @@ import librosa
 import noisereduce as nr
 from pydub import AudioSegment
 from math import isclose
-# import matplotlib.pyplot as plt
 
 _STANDART_SAMPLE_RATE = 22050
 
