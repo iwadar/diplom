@@ -131,7 +131,7 @@ class Database:
             print(f'Adding completed with error: {e}')
 
 
-    def insertNewReferenceToDb(self, filename, mfcc):
+    def insertNewReferenceToDb(self, filename, mfcc, replacement):
         word_weight = re.split("_| ", os.path.splitext(filename)[0])
         if len(word_weight) < 2:
             print('Bad filename! (category_weight.wav)')
@@ -151,24 +151,70 @@ class Database:
 
         # Если такого слова еще нет, то надо добавить его в categoryreplacment
         if (idWord := self.isExistWord(tableName='categoryreplacement', word=word)) == _NOT_EXIST:
-            idWord = self.insertToCategoryReplacment(tableName='categoryreplacement', word=word)
+            idWord = self.insertToCategoryReplacment(tableName='categoryreplacement', word=word, replacement=replacement)
         
         self.insertToReferenceWord(tableName='referenceword', categoryId=idWord, mfcc=mfccToDb, weight=weight)
 
 
+    def insertFromInterface(self, fileName, replacement):
+        self.connect()
+        audio = Audio(fileName)
+        mfcc = MFCC(audio=audio)
+        mfcc.calculateMFCC()
+        mfcc.listFrames = stats.zscore(mfcc.listFrames)
+        self.insertNewReferenceToDb(os.path.basename(fileName), mfcc.listFrames, replacement)
+        self.disconnect()
+        print('Word added!')
+
+
+    def selectForInterface(self, categoryreplacement = 'categoryreplacement', referenceword='referenceword'):
+        self.cursor.execute(f"""SELECT {categoryreplacement}.id, {categoryreplacement}.word, {categoryreplacement}.replacement, COUNT({referenceword}.categoryid) FROM {categoryreplacement}, {referenceword} where {referenceword}.categoryid = {categoryreplacement}.id GROUP BY ({categoryreplacement}.id, {categoryreplacement}.word, {categoryreplacement}.replacement)""")
+
+        rows = self.cursor.fetchall()
+        listResult = list()
+
+        # 0 - word, 1 - replacement, 2- count
+        for each in rows:
+            listResult.append((each[0], each[1], each[2], each[3]))
+
+        return listResult
+    
+    def deleteDataFromInterface(self, listData):
+        try:
+
+            for data in listData:
+                print(data[1])
+                self.cursor.execute(f"DELETE FROM referenceword WHERE categoryid=%s", (str(data[0])))
+                self.cursor.execute(f"DELETE FROM categoryreplacement WHERE id=%s", (str(data[0])))
+
+                self.connection.commit()
+            print('Entry delete successfully!')
+        except Exception as e:
+            print(f'Deleting completed with error: {e}')
+
+
+
+    def updateDataInInerface(self, word, replacement):
+        try:
+            self.cursor.execute(f"UPDATE categoryreplacement SET replacement = %s WHERE word=%s", (replacement, word))
+            self.connection.commit()
+            print('Entry update successfully!')
+        except Exception as e:
+            print(f'Updating completed with error: {e}')
 
 if __name__=='__main__':
     db = Database()
     db.connect()
 
-    audio = Audio()
-    mfcc = MFCC(audio=audio)
+    db.deleteDataFromInterface([(4, 'scuf', 'мужик, мне пох')])
+    # audio = Audio()
+    # mfcc = MFCC(audio=audio)
 
-    for file in os.listdir(directoryWithReference):
-        if os.path.isfile(directoryWithReference + file):
-            print(directoryWithReference + file)
-            audio.updateData(directoryWithReference + file)
-            mfcc.calculateMFCC()
-            mfcc.listFrames = stats.zscore(mfcc.listFrames)
-            db.insertNewReferenceToDb(file, mfcc.listFrames)
+    # for file in os.listdir(directoryWithReference):
+    #     if os.path.isfile(directoryWithReference + file):
+    #         print(directoryWithReference + file)
+    #         audio.updateData(directoryWithReference + file)
+    #         mfcc.calculateMFCC()
+    #         mfcc.listFrames = stats.zscore(mfcc.listFrames)
+    #         db.insertNewReferenceToDb(file, mfcc.listFrames)
     db.disconnect()
