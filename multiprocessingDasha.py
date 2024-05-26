@@ -120,8 +120,8 @@ class ParallelFind:
             print(f'Result in file {self.pathToDownload + f"{Path(self.fileName).stem}_result.wav"}')
             return self.pathToDownload + f"{Path(self.fileName).stem}_result.wav"
         else:
-            print('В файле не обнаружено слов зарегистрированных слов.')
-            return 'В файле не обнаружено слов зарегистрированных слов.'
+            print('В файле не обнаружено зарегистрированных слов.')
+            return 'В файле не обнаружено зарегистрированных слов.'
 
 
 

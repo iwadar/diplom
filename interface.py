@@ -2,6 +2,7 @@ import flet as ft
 from databases import *
 from multiprocessingDasha import *
 from threading import Thread
+import copy
 from flet import (
     AppBar,
     Icon,
@@ -55,7 +56,7 @@ TalkSlang идеально подходит для:
 TalkSlang – это простой и удобный в использовании инструмент, который поможет вам сделать ваш аудиоконтент идеальным!
 """),
         actions=[
-            ft.TextButton("Yes", on_click=close_dlg_program),
+            ft.TextButton("Принято!", on_click=close_dlg_program),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
         on_dismiss=lambda e: print("Modal dialog dismissed!"),
@@ -71,7 +72,7 @@ TalkSlang – это простой и удобный в использован�
         title=ft.Text("Информация об авторе"),
         content=ft.Text("Автор: Иванченко Дарья Владимировна\nГруппа: М8О-410Б-20\nПочта: ivanchenko-darya@inbox.ru"),
         actions=[
-            ft.TextButton("Yes", on_click=close_dlg_author),
+            ft.TextButton("Спасибо!", on_click=close_dlg_author),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
         on_dismiss=lambda e: print("Modal dialog dismissed!"),
@@ -112,6 +113,8 @@ TalkSlang – это простой и удобный в использован�
                             ],
                             rows=[],
             )
+    
+    listSlangWord = []
 
     ### Файловый диалог
 
@@ -153,13 +156,21 @@ TalkSlang – это простой и удобный в использован�
          textFiledReplace
         ]
     
-    content_to_upd_data = [
-            ft.Text("Внесите слово и его аналог. \nСлово должно быть написано так, как оно указано в таблице."),
+    dropDown = ft.Dropdown()
 
-            textFiledWord, 
+    content_to_upd_data = [
+            ft.Text("Выберите слово и внесите его аналог на русском языке."),
+            dropDown,
+            # textFiledWord, 
             textFiledReplace
             ]
     
+    def fillDataDropDown():
+        print(listSlangWord)
+        dropDown.options = []
+        for word in listSlangWord:
+            dropDown.options.append(ft.dropdown.Option(word))
+        page.update()
 
 
     def common_close_dlg_add():
@@ -188,7 +199,10 @@ TalkSlang – это простой и удобный в использован�
         db.connect()
         listResult = db.selectForInterface()
         dataBase.rows = []
+        listSlangWord.clear()
+        print(listSlangWord)
         for item in listResult:
+            listSlangWord.append(item[1])
             dataBase.rows.insert(len(dataBase.rows), 
                                     ft.DataRow(cells=[
                                                     ft.DataCell(Checkbox(value=False, 
@@ -201,10 +215,11 @@ TalkSlang – это простой и удобный в использован�
                                                     ft.DataCell(ft.Text(item[3]))
                                                     ],
                                                     selected=True
-                                                    )) 
+                                                    ))             
         db.disconnect()
 
     select_data_from_bd()
+
 
     def add_btn(e):
             if (textFiledReplace.value or textFiledFile.value):
@@ -262,10 +277,13 @@ TalkSlang – это простой и удобный в использован�
 
 
     def upd_btn(e):
-        if (textFiledReplace.value or textFiledWord.value):
+        if (textFiledReplace.value or dropDown.value):
+                
+        # if (textFiledReplace.value or textFiledWord.value):
                 print('start update')
                 db.connect()
-                db.updateDataInInerface(textFiledWord.value, textFiledReplace.value)
+                db.updateDataInInerface(dropDown.value, textFiledReplace.value)
+                # db.updateDataInInerface(textFiledWord.value, textFiledReplace.value)
                 db.disconnect()
                 select_data_from_bd()
         common_close_dlg_upd()
@@ -276,7 +294,7 @@ TalkSlang – это простой и удобный в использован�
             title=ft.Text("Изменить слова"),
             content=ft.Column(content_to_upd_data),
             actions=[
-                ft.TextButton("Добавить", on_click=upd_btn),
+                ft.TextButton("Изменить", on_click=upd_btn),
                 ft.TextButton("Отмена", on_click=close_dlg_upd),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
@@ -285,6 +303,8 @@ TalkSlang – это простой и удобный в использован�
 
 
     def open_dlg_update(e):
+        fillDataDropDown()
+
         page.dialog = dlg_upd
         dlg_upd.open = True
         page.update()

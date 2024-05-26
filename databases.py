@@ -203,7 +203,7 @@ class Database:
         try:
             self.cursor.execute(f"UPDATE categoryreplacement SET replacement = %s WHERE word=%s", (replacement, word))
             self.connection.commit()
-            print('Entry update successfully!')
+            print(f'{word}-{replacement} update successfully!')
         except Exception as e:
             print(f'Updating completed with error: {e}')
 
