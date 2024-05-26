@@ -6,7 +6,7 @@ from pydub import AudioSegment
 
 
 
-_START_MUTENESS = 0.1
+_START_MUTENESS = 0.09
 _END_MUTENESS = 0.83
 _MILLISECOND = 1000
 # Get device

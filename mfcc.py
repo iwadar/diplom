@@ -19,7 +19,7 @@ _STANDART_STEP = 1/16
 _VALID_MATCH = 0.5
 _INCREASE_STEP = 0.5
 
-_WORD_PRESENCE_TRESHOLDER = 2
+_WORD_PRESENCE_TRESHOLDER = 0.8
 _ALLOWED_ERROR_FLOAT = 0.01
 
 
@@ -56,13 +56,27 @@ class MFCC:
 
         self.listFrames = np.array(list(map(lambda frame: frame * window, self.listFrames)))
 
+    def normalizer(self):
+        maxValue, minValue = max(self.listFrames[0]), min(self.listFrames[0])
+        for i in range (1, len(self.listFrames)):
+            if (_ := max(self.listFrames[i])) > maxValue:
+                maxValue = _
+            if (_ := min(self.listFrames[i])) < minValue:
+                minValue = _
+            
+        denominator = maxValue - minValue
+        for i in range (len(self.listFrames)):
+            for j in range (len(self.listFrames[i])):
+                self.listFrames[i][j] = (self.listFrames[i][j] - minValue) / denominator
+
+
     def mfcc(self, n_mfcc = 13):
         # Беру 0 массив, потому что не понятно до сих пор как формируется shape результата
         self.listFrames = np.array(list(map(lambda frame: librosa.feature.mfcc(y=frame, sr=self.audio.sampleRate, n_mfcc=n_mfcc, hop_length=self.length).T[0],  self.listFrames)))
         # self.listFrames = stats.zscore(self.listFrames)
         # print(self.listFrames.shape)
         # self.listFrames = np.array(list(map(lambda frame: librosa.feature.mfcc(y=frame, sr=self.audio.sampleRate, n_mfcc=n_mfcc,  hop_length=self.length, n_fft=len(self.listFrames)).T[0],  self.listFrames)))
-        
+        self.normalizer()
         # print(self.listFrames)
 
 
@@ -284,7 +298,7 @@ class Compare:
                     listTimeInterval.append((startIndex * coefIndexToSec, endIndex * coefIndexToSec))
                     # listTimeInterval.append((startIndex, endIndex))
                                     
-                if rating >= treshold:
+                if rating >= treshold and rating >= _WORD_PRESENCE_TRESHOLDER:
                     # print(f'here {i}, {endSlice}')
                     startIndex, endIndex = curIndex, listIndex[i][1]
                 else:
@@ -343,20 +357,18 @@ class Compare:
             # _ = self.crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
             _ = self._crossValidation(referenceFrames, userFrames[int(time[0] / coefficientTimeToMfccIndex): ceil(time[1] / coefficientTimeToMfccIndex)])
             listLocalDTW.append(_)
-            # print(_, time)
             # if _ >= _WORD_PRESENCE_TRESHOLDER:
             #     listTimeInterval.append((time[0], time[1], _))
             # elif _ > maxMatch:
             #         maxMatch = _
             #         timeMatch = time
         # if listTimeInterval:
-        treshold = statistics.mean(listLocalDTW)
-        # print(treshold)
-
-        for i, rating in enumerate(listLocalDTW):
-            if rating >= treshold:
-                listTimeInterval.append((listWordBounds[i][0], listWordBounds[i][1], rating))
-
+        if listLocalDTW:
+            treshold = statistics.mean(listLocalDTW)
+            # print(treshold)
+            for i, rating in enumerate(listLocalDTW):
+                if rating >= treshold and rating >= _WORD_PRESENCE_TRESHOLDER:
+                    listTimeInterval.append((listWordBounds[i][0], listWordBounds[i][1], rating))
 
         return listTimeInterval
         # else:

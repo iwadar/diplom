@@ -1,6 +1,7 @@
 import flet as ft
 from databases import *
 from multiprocessingDasha import *
+from threading import Thread
 from flet import (
     AppBar,
     Icon,
@@ -37,7 +38,22 @@ def main(page: Page):
     dlg_program = ft.AlertDialog(
         modal=True,
         title=ft.Text("Информация о программе"),
-        content=ft.Text("ПРОГРАММА ЕПТА"),
+        content=ft.Text("""
+TalkSlang – это инструмент, который помогает вам сделать ваш аудиоконтент более профессиональным и доступным. Загружайте аудиофайл и программа автоматически обнаружит сленговые слова. Вы можете:
+
+1. Заменить сленг голосом говорящего, сохраняя естественность речи.
+2. Добавить новые сленговые слова в словарь программы.
+3.  Удалить нежелательные слова из аудио.
+4.  Изменить сленговые слова на более формальные варианты.
+
+TalkSlang идеально подходит для:
+
+1.  Подкастеров, которые хотят сделать свой контент более привлекательным для широкой аудитории.
+2.  Преподавателей, которые хотят использовать аудиоматериалы в учебных целях.
+3.  Любого, кто хочет улучшить качество своего аудиоконтента.
+
+TalkSlang – это простой и удобный в использовании инструмент, который поможет вам сделать ваш аудиоконтент идеальным!
+"""),
         actions=[
             ft.TextButton("Yes", on_click=close_dlg_program),
         ],
@@ -53,7 +69,7 @@ def main(page: Page):
     dlg_author = ft.AlertDialog(
         modal=True,
         title=ft.Text("Информация об авторе"),
-        content=ft.Text("Я БЛЯТЬ"),
+        content=ft.Text("Автор: Иванченко Дарья Владимировна\nГруппа: М8О-410Б-20\nПочта: ivanchenko-darya@inbox.ru"),
         actions=[
             ft.TextButton("Yes", on_click=close_dlg_author),
         ],
@@ -86,49 +102,40 @@ def main(page: Page):
 
     #### База данных
 
-    def selectedall(e):
-        pass
-
     dataBase = ft.DataTable(
                             columns=[
-                                ft.DataColumn(Column([
-                                    ft.Text(""),
-                                    # Checkbox(value=False, on_change=selectedall)
-                                
-                                ])),
-                                ft.DataColumn(ft.Text("ID"), numeric=True),
+                                ft.DataColumn(Column([ft.Text("")])),
+                                # ft.DataColumn(ft.Text("ID"), numeric=True),
                                 ft.DataColumn(ft.Text("Запретное слово")),
                                 ft.DataColumn(ft.Text("Замена")),
                                 ft.DataColumn(ft.Text("Количество референсов"), numeric=True),
                             ],
-                            rows=[
-                                # ft.DataRow(
-                                #     cells=[
-                                #         ft.DataCell(ft.Text("John")),
-                                #         ft.DataCell(ft.Text("Smith")),
-                                #         ft.DataCell(ft.Text("43")),
-                                #     ],
-                                # ),
-                                #     ft.DataRow(
-                                #     cells=[
-                                #     ft.DataCell(ft.Text("Jack")),
-                                #     ft.DataCell(ft.Text("Brown")),
-                                #     ft.DataCell(ft.Text("19")),
-                                #     ],
-                                #     ),
-                        ],
+                            rows=[],
             )
 
     ### Файловый диалог
 
     def on_dialog_file(e):
         if file_pickle.result and file_pickle.result.files:
-            print('tyt')
             textFiledFile.value = file_pickle.result.files[0].path
             textFiledFile.update()
 
     file_pickle = ft.FilePicker(on_result=on_dialog_file)
+
+
+    textFieldFileTranslate = TextField(label="Файл", read_only=True)
+
+    def on_dialog_file_translate(e):
+        if file_pickle_translate.result and file_pickle_translate.result.files:
+            textFieldFileTranslate.value = file_pickle_translate.result.files[0].path
+            textFieldFileTranslate.update()
+
+    file_pickle_translate = ft.FilePicker(on_result=on_dialog_file_translate)
+
     page.overlay.append(file_pickle)
+    page.overlay.append(file_pickle_translate)
+
+    fileButtonTranslate = ft.ElevatedButton('Выберите файл', on_click=lambda e:file_pickle_translate.pick_files(allow_multiple=False))
 
     fileButton = ft.ElevatedButton('Выберите файл', on_click=lambda e:file_pickle.pick_files(allow_multiple=False))
 
@@ -138,13 +145,17 @@ def main(page: Page):
 
 
     content_to_add_data = [
-        #  textFiledWord, 
+        #  textFiledWord,
+        ft.Text("Вам необходимо выбрать аудиофайл. \nЕго название должно быть в формате <категория_вес.wav>. \nНапример, cringe_0.8.wav. \nВес может быть от 0.01 до 1."),
+
          fileButton,
          textFiledFile,
          textFiledReplace
         ]
     
     content_to_upd_data = [
+            ft.Text("Внесите слово и его аналог. \nСлово должно быть написано так, как оно указано в таблице."),
+
             textFiledWord, 
             textFiledReplace
             ]
@@ -165,19 +176,15 @@ def main(page: Page):
     selected_row = []
     
     def this_selected(e):
-        id = e.control.data[0]
-        word = e.control.data[1]
-        replace = e.control.data[2]
         if e.control.value:
-            selected_row.append((id, word, replace))
+            selected_row.append(tuple(e.control.data))
         else:
             for c in selected_row:
-                if c[0] == id:
+                if c[0] == e.control.data[0]:
                     selected_row.remove(c)
         
 
     def select_data_from_bd():
-        print('select ')
         db.connect()
         listResult = db.selectForInterface()
         dataBase.rows = []
@@ -186,8 +193,9 @@ def main(page: Page):
                                     ft.DataRow(cells=[
                                                     ft.DataCell(Checkbox(value=False, 
                                                                         on_change=this_selected,
-                                                                        data=[item[0], item[1], item[2]])),
-                                                    ft.DataCell(ft.Text(item[0])), 
+                                                                        data=item
+                                                                        )),
+                                                    # ft.DataCell(ft.Text(item[0])), 
                                                     ft.DataCell(ft.Text(item[1])), 
                                                     ft.DataCell(ft.Text(item[2])),
                                                     ft.DataCell(ft.Text(item[3]))
@@ -230,14 +238,13 @@ def main(page: Page):
 
 
     def delete_item(e):
-
-        db.connect()
-        db.deleteDataFromInterface(selected_row)
-        db.disconnect()
-
-        dataBase.rows.clear()
-        select_data_from_bd()
-        selected_row.clear()
+        if selected_row:
+            db.connect()
+            db.deleteDataFromInterface(selected_row)
+            db.disconnect()
+            dataBase.rows.clear()
+            select_data_from_bd()
+            selected_row.clear()
         page.update()
 
 
@@ -325,19 +332,27 @@ def main(page: Page):
         ]
 
 
-    def cls_success(e):
-        textFiledFile.value = ''
-        buttonStartTranslate.disabled = False
-        fileButton.disabled = False
-        dlg_success.open = False
+    def action():
+        progresBar.visible=not(progresBar.visible)
+        buttonStartTranslate.disabled = not(buttonStartTranslate.disabled)
+        fileButtonTranslate.disabled = not(fileButtonTranslate.disabled)
         page.update()
 
-    progresBar = ft.ProgressBar(width=500, color="amber", bgcolor="#eeeeee", visible=False)
+    fileNameResult = ['']
+
+    def cls_success(e):
+        textFieldFileTranslate.value = ''
+        dlg_success.open = False
+        page.update()
+        fileNameResult = ['']
+
+    progresBar = ft.ProgressBar(width=page.window_width, color="amber", bgcolor="#eeeeee", visible=False, bar_height=8)
+    text_result_field = ft.Text("")
 
     dlg_success = ft.AlertDialog(
             modal=True,
             title=ft.Text("Перевод завершен!"),
-            content=ft.Text("Поздравляю! Ваше аудио сохранено по адресу..."),
+            content=text_result_field,
             actions=[
                 ft.TextButton("Ура", on_click=cls_success),
             ],
@@ -345,14 +360,33 @@ def main(page: Page):
             on_dismiss=lambda e: print("Modal dialog dismissed!"),
         )
 
+    def functionInThread():
+        print('start translate')
+        proga = ParallelFind(textFieldFileTranslate.value)
+        fileNameResult.append(proga.findAndReplaceWords())
+        # fileNameResult.append(proga.test())
+        del proga
+        print('end translate')
+
+
     def startTranslate(e):
-        if (textFiledFile.value):
-            progresBar.visible=True
-            buttonStartTranslate.disabled = True
-            fileButton.disabled = True
-            proga = ParallelFind(textFiledFile.value)
-            proga.findAndReplaceWords()
-            progresBar.visible=False
+        if (textFieldFileTranslate.value):
+            action()
+            th = Thread(target=functionInThread)
+            th.start()
+            # proga = ParallelFind(textFieldFileTranslate.value)
+            # # proga.findAndReplaceWords()
+            # progresBar.visible=False
+            th.join()
+            action()
+            if fileNameResult[-1]:
+                if fileNameResult[-1].endswith('.wav'):
+                    text_result_field.value = "Поздравляю! Ваше аудио сохранено по адресy " + str(fileNameResult[-1])
+                else:
+                    text_result_field.value = str(fileNameResult[-1])
+            else:
+                text_result_field.value = "К сожалению, не удалось перевести аудио :(\nВозникли технические проблемы.\nВы можете связаться с автором работы для решения проблем!"
+            # print(text_result_field)
             page.dialog = dlg_success
             dlg_success.open = True
             page.update()
@@ -362,25 +396,13 @@ def main(page: Page):
 
     translatePage = [   
         ft.Column(spacing=5, controls=[
-                fileButton,
-                textFiledFile,
+                fileButtonTranslate,
+                textFieldFileTranslate,
                 buttonStartTranslate,
                 progresBar
             ]
-        ),
-        # ft.Container(
-        #             content=ft.Column([dataBase], scroll= ft.ScrollMode.ALWAYS),
-        #             alignment=ft.alignment.top_center,
-        #             border_radius=ft.border_radius.all(10),
-        #             expand=True,
-        #             # bgcolor=ft.colors.AMBER_100,
-        #             margin=10,
-        # ),
-        
+        ),        
         ]
-
-
-
 
     t = ft.Tabs(
         selected_index=1,
@@ -413,36 +435,11 @@ def main(page: Page):
                     expand=True 
                 )
             ),
-            # ft.Tab(
-            #     icon=ft.icons.ANALYTICS, 
-            #     text="Статистика",
-            #     content=ft.Text("This is Tab 3"),
-            # ),
         ],
         expand=1,
         scrollable=True
     )
-    
-    # page.add(
-    #     Container(
-    #         content=Column([
-    #             tab_1,
-    #             tab_2,
-    #             tab_3,
-    #             ],
-    #             alignment=ft.MainAxisAlignment.CENTER,
-    #             horizontal_alignment=ft.CrossAxisAlignment.CENTER,),
-    #         margin=20,
-    #         padding=20,
-    #         alignment=ft.alignment.center,
-    #         bgcolor=ft.colors.GREEN_ACCENT_100,
-    #         border_radius=20,
-    #         expand=True
-    #         ),
-    #     )
-    
     page.add(t)
-    # page.theme = theme.Theme(color_scheme_seed="green")
     page.update()
 
 

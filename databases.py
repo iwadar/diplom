@@ -131,7 +131,7 @@ class Database:
             print(f'Adding completed with error: {e}')
 
 
-    def insertNewReferenceToDb(self, filename, mfcc, replacement):
+    def insertNewReferenceToDb(self, filename, mfcc, replacement = ''):
         word_weight = re.split("_| ", os.path.splitext(filename)[0])
         if len(word_weight) < 2:
             print('Bad filename! (category_weight.wav)')
@@ -168,7 +168,11 @@ class Database:
 
 
     def selectForInterface(self, categoryreplacement = 'categoryreplacement', referenceword='referenceword'):
-        self.cursor.execute(f"""SELECT {categoryreplacement}.id, {categoryreplacement}.word, {categoryreplacement}.replacement, COUNT({referenceword}.categoryid) FROM {categoryreplacement}, {referenceword} where {referenceword}.categoryid = {categoryreplacement}.id GROUP BY ({categoryreplacement}.id, {categoryreplacement}.word, {categoryreplacement}.replacement)""")
+        # self.cursor.execute(f"""SELECT {categoryreplacement}.id, {categoryreplacement}.word, {categoryreplacement}.replacement, COUNT({referenceword}.categoryid) FROM {categoryreplacement}, {referenceword} where {referenceword}.categoryid = {categoryreplacement}.id GROUP BY ({categoryreplacement}.id, {categoryreplacement}.word, {categoryreplacement}.replacement)""")
+        self.cursor.execute(f"""SELECT {categoryreplacement}.id, word, replacement, COUNT({referenceword}.categoryid) 
+                                FROM {categoryreplacement} 
+                                LEFT JOIN {referenceword} ON {categoryreplacement}.id = {referenceword}.categoryid 
+                                GROUP BY ({categoryreplacement}.id, word, replacement) LIMIT 100""")
 
         rows = self.cursor.fetchall()
         listResult = list()
@@ -179,16 +183,17 @@ class Database:
 
         return listResult
     
+    
     def deleteDataFromInterface(self, listData):
         try:
-
             for data in listData:
-                print(data[1])
-                self.cursor.execute(f"DELETE FROM referenceword WHERE categoryid=%s", (str(data[0])))
-                self.cursor.execute(f"DELETE FROM categoryreplacement WHERE id=%s", (str(data[0])))
-
+                if data[-1] > 0:
+                    self.cursor.execute(f"""DELETE FROM referenceword WHERE categoryid={data[0]}""")
+                    self.cursor.execute(f"""DELETE FROM categoryreplacement WHERE id={data[0]}""")
+                else:
+                    self.cursor.execute(f"""DELETE FROM categoryreplacement WHERE id={data[0]}""")
                 self.connection.commit()
-            print('Entry delete successfully!')
+                print(f'{data} delete successfully!')
         except Exception as e:
             print(f'Deleting completed with error: {e}')
 
@@ -206,15 +211,15 @@ if __name__=='__main__':
     db = Database()
     db.connect()
 
-    db.deleteDataFromInterface([(4, 'scuf', 'мужик, мне пох')])
-    # audio = Audio()
-    # mfcc = MFCC(audio=audio)
+    # db.deleteDataFromInterface([(10, 'skuf', 'неряшливый мужчина', 0)])
+    audio = Audio()
+    mfcc = MFCC(audio=audio)
 
-    # for file in os.listdir(directoryWithReference):
-    #     if os.path.isfile(directoryWithReference + file):
-    #         print(directoryWithReference + file)
-    #         audio.updateData(directoryWithReference + file)
-    #         mfcc.calculateMFCC()
-    #         mfcc.listFrames = stats.zscore(mfcc.listFrames)
-    #         db.insertNewReferenceToDb(file, mfcc.listFrames)
+    for file in os.listdir(directoryWithReference):
+        if os.path.isfile(directoryWithReference + file):
+            print(directoryWithReference + file)
+            audio.updateData(directoryWithReference + file)
+            mfcc.calculateMFCC()
+            mfcc.listFrames = stats.zscore(mfcc.listFrames)
+            db.insertNewReferenceToDb(file, mfcc.listFrames)
     db.disconnect()

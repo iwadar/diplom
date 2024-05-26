@@ -3,10 +3,13 @@ from segmentationAudio import *
 from databases import *
 from generateWord import *
 from pathlib import Path
+import gc
+
 
 class ParallelFind:
-    # pathToDownload = str(Path.home() / "Downloads")
+    # pathToDownload = str(Path.home() / "Downloads/TalkSlang")
     pathToDownload = '/home/dasha/python_diplom/cut_res/'
+    os.makedirs(pathToDownload, mode=0o777, exist_ok=True)
 
     def __init__(self, fileName) -> None:
         # создали объекты
@@ -19,6 +22,7 @@ class ParallelFind:
         db = Database()
         self.dictWordAndTime = {}
         self.average_dBFS_original = self.audio.audioData.dBFS
+        print(self.average_dBFS_original)
 
         # проинициализаировали
         db.connect()
@@ -26,6 +30,7 @@ class ParallelFind:
         self.dictionaryReplacement = db.getDictCategoryReplacement()
         db.disconnect()
         self.mfcc.calculateMFCC()
+        # print(self.mfcc.listFrames)
 
 
     def parallelFunction(self, listArguments):
@@ -35,6 +40,7 @@ class ParallelFind:
         for time in listTimes:
             temporary.extend(self.segmentation.searchWordsInAudioFragment(start=time[0], finish=time[1]))
         listTimes = self.compare._getExactLocationWord(temporary, listArguments[1], listArguments[2], listArguments[3])
+        print(listArguments[0], listTimes)
         # if listTimes:
         #     self.dictionaryReplacement[listArguments[0]] = self.generatorWord.generateWord(text=self.dictionaryReplacement[listArguments[0]])
         #     average_dBFS_new = abs(self.dictionaryReplacement[listArguments[0]].dBFS)
@@ -56,7 +62,6 @@ class ParallelFind:
             for time in result[1]:
 
                 start, end, score = time[0], time[1], time[2]
-
                 if (start, end) in tempDict:
                     if tempDict[(start, end)][0] < score:
                         tempDict[(start, end)] = (score, result[0])
@@ -65,9 +70,13 @@ class ParallelFind:
         
         tempDict = sorted(tempDict.items())
 
+        if len(tempDict) > 1 and tempDict[0][0][0] < 200:
+            del tempDict[0]
+
         if len(tempDict) > 1:
             i = 1
             while i < len(tempDict):
+                print(tempDict[i][0][0])
                 if tempDict[i][0][0] < tempDict[i - 1][0][1]:
                     if tempDict[i][1][0] > tempDict[i - 1][1][0]:
                         del tempDict[i - 1]
@@ -76,36 +85,52 @@ class ParallelFind:
                 else:
                     i += 1
 
-        # tempDict = [((3720.0, 4054.331065759637), (2.179274931530517, 'cringe')), ((4894.195011337868, 5493.832199546485), (2.2098323242687625, 'cringe')), ((5728.571428571428, 6149.705215419501), (2.092704059265, 'imba'))]
+        # tempDict = [((4506.632653061225, 5037.063492063493), (2.239908195731812, 'cringe')), ((9452.857142857143, 9965.374149659863), (2.151802037668552, 'cringe'))]
+
         print('-'*12)
+        print(len(tempDict))
         print(tempDict)
-        begin = 0
+        if len(tempDict):
+            begin = 0
+            self.generatorWord = GeneratorAudio(speaker=self.fileName)
+            newAudio = AudioSegment.silent()
+            for time, meta in tempDict:
+                name = meta[1]
+                if isinstance(self.dictionaryReplacement[name], str):
+                    self.dictionaryReplacement[name] = self.generatorWord.generateWord(text=self.dictionaryReplacement[name])
+                    print(self.dictionaryReplacement[name].dBFS)
+                    average_dBFS_new = self.dictionaryReplacement[name].dBFS
+                    print(f"разность = {(self.average_dBFS_original - average_dBFS_new)}")
+                    self.dictionaryReplacement[name] = self.dictionaryReplacement[name] + (self.average_dBFS_original - average_dBFS_new)
+                    print(self.dictionaryReplacement[name].dBFS)
+                s = self.audio.audioData[begin:time[0]]
+                if begin == 0:
+                    newAudio = s
+                else:
+                    newAudio += s
 
-        self.generatorWord = GeneratorAudio(speaker=self.fileName)
-        for time, meta in tempDict:
-            name = meta[1]
-            if isinstance(self.dictionaryReplacement[name], str):
-                self.dictionaryReplacement[name] = self.generatorWord.generateWord(text=self.dictionaryReplacement[name])
-                print(self.dictionaryReplacement[name].dBFS)
-                average_dBFS_new = self.dictionaryReplacement[name].dBFS
-                self.dictionaryReplacement[name] = self.dictionaryReplacement[name].apply_gain(self.average_dBFS_original - average_dBFS_new)
-                print(self.dictionaryReplacement[name].dBFS)
-            s = self.audio.audioData[begin:time[0]]
-            if begin == 0:
-                newAudio = s
-            else:
-                newAudio += s
+                newAudio += self.dictionaryReplacement[name]
 
-            newAudio += self.dictionaryReplacement[name]
-
-            begin = time[1]
-
-        newAudio += self.audio.audioData[begin:]
-        newAudio.export(self.pathToDownload + f"{Path(self.fileName).stem}_result.wav", format="wav")
-        print(f'Result in file {self.pathToDownload + f"{Path(self.fileName).stem}_result.wav"}')
+                begin = time[1]
+            del self.generatorWord.tts
+            del self.generatorWord
+            gc.collect()
+            newAudio += self.audio.audioData[begin:]
+            newAudio.export(self.pathToDownload + f"{Path(self.fileName).stem}_result.wav", format="wav")
+            print(f'Result in file {self.pathToDownload + f"{Path(self.fileName).stem}_result.wav"}')
+            return self.pathToDownload + f"{Path(self.fileName).stem}_result.wav"
+        else:
+            print('В файле не обнаружено слов зарегистрированных слов.')
+            return 'В файле не обнаружено слов зарегистрированных слов.'
 
 
 
 if __name__=='__main__':
-    proga = ParallelFind('/home/dasha/python_diplom/wav/user_v.1.wav')
+    # for i in ['1', '2', '3', '8', '9']:
+    #     print(i)
+    #     proga = ParallelFind(f'/home/dasha/python_diplom/wav/user_v.{i}.wav')
+    #     proga.findAndReplaceWords()
+    #     del proga
+
+    proga = ParallelFind(f'/home/dasha/python_diplom/wav/cringe_1.wav')
     proga.findAndReplaceWords()
