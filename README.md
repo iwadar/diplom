@@ -16,7 +16,7 @@ _Тестировалось приложение на ОС Ubuntu 22.04._
 1. После скачивания репозитория, установите все зависимости:
    ``` pip install -r /path/to/requirements.txt ```
 2. Необходимо создать базу данных в PostgeSQL.
-3. Выполните скрипт ./sqlTemplate/create-table-template.sql для создания необходимых таблиц
+3. Выполните скрипт `./sqlTemplate/create-table-template.sql` для создания необходимых таблиц
 4. Создайте файл `configDataBases.ini` и заполните данные о вашей БД:
    ``` 
    [Database]
