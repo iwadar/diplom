@@ -49,13 +49,17 @@ _Тестировалось приложение на ОС Ubuntu 22.04._
 Примеры работы:
 
 Добавление:
+
 ![add_new](https://github.com/iwadar/diplom/assets/108524416/2a78ef47-2637-43ed-89e2-2cf732161fc2)
 
 Обновление:
+
 ![update_new](https://github.com/iwadar/diplom/assets/108524416/399dd5c8-1d0e-42a9-b388-51823700a6f4)
 
 Удаление:
-![after_delete](https://github.com/iwadar/diplom/assets/108524416/f2319db6-cde9-454c-abe6-4fdaaa87c176)
+
+![delete_new](https://github.com/iwadar/diplom/assets/108524416/82429a40-5fa2-4c52-aa56-e1800f342fa6)
+
 
 ### Вкладка TalkSlang
 
