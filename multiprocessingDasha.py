@@ -62,34 +62,55 @@ class ParallelFind:
             for time in result[1]:
 
                 start, end, score = time[0], time[1], time[2]
-                if (start, end) in tempDict:
-                    if tempDict[(start, end)][0] < score:
+                if end - start < 1000:
+                    if (start, end) in tempDict:
+                        if tempDict[(start, end)][0] < score:
+                            tempDict[(start, end)] = (score, result[0])
+                    else:
                         tempDict[(start, end)] = (score, result[0])
-                else:
-                    tempDict[(start, end)] = (score, result[0])
         
         tempDict = sorted(tempDict.items())
-
-        if len(tempDict) > 1 and tempDict[0][0][0] < 200:
-            del tempDict[0]
-
+        # print(tempDict)
+        # print('***'*9)
+        # tempDict = [((1815.0000000000002, 1987.8344671201817), (2.2169935522330313, 'cringe')), ((2129.2857142857147, 2531.371882086168), (2.2599849381273804, 'cringe')), ((3443.299319727891, 3614.8639455782313), (2.216603009833339, 'cringe')), ((4058.8321995464858, 4214.387755102041), (2.1820532208195296, 'cringe')), ((5664.659863945578, 6031.643990929705), (2.1952514828946526, 'imba')), ((5664.693877551022, 6031.632653061225), (2.1621210518531124, 'cringe')), ((6504.671201814059, 6804.353741496599), (2.7899455873857315, 'мем')), ((7800.884353741497, 7999.569160997732), (2.260219594677374, 'imba')), ((7800.895691609978, 7999.625850340137), (2.735266069846502, 'мем')), ((8242.380952380952, 8621.020408163266), (2.22524933815731, 'imba'))]
+        setIndexToDelete = set()
         if len(tempDict) > 1:
             i = 1
             while i < len(tempDict):
-                print(tempDict[i][0][0])
-                if tempDict[i][0][0] < tempDict[i - 1][0][1]:
-                    if tempDict[i][1][0] > tempDict[i - 1][1][0]:
-                        del tempDict[i - 1]
-                    else:
-                        del tempDict[i]
-                else:
-                    i += 1
+                # print(tempDict[i][0][0])
+                # print(tempDict)
+                # print('~'*14)
+                # if tempDict[i][0][0] < tempDict[i - 1][0][1]:
+                #     if tempDict[i][1][0] > tempDict[i - 1][1][0]:
+                #         del tempDict[i - 1]
+                #     else:
+                #         del tempDict[i]
+                # else:
+                #     i += 1
+                if tempDict[i - 1][0][1] > tempDict[i][0][0]:
+                    # if tempDict[i][1][0] > tempDict[i - 1][1][0]:
+                    setIndexToDelete.add(i - 1)
+                    # else:
+                    setIndexToDelete.add(i)
 
+                i += 1
+        setIndexToDelete = sorted(setIndexToDelete)
+        # print(tempDict)
+
+        for i in setIndexToDelete[::-1]:
+            del tempDict[i]
+
+        while len(tempDict) > 1 and tempDict[0][0][0] < 200:
+            del tempDict[0]
         # tempDict = [((4506.632653061225, 5037.063492063493), (2.239908195731812, 'cringe')), ((9452.857142857143, 9965.374149659863), (2.151802037668552, 'cringe'))]
 
-        print('-'*12)
+
+        # for time, data in tempDict:
+        #     trimmed_audio = self.audio.audioData[int(time[0]):ceil(time[1])]
+        #     trimmed_audio.export(f"/home/dasha/python_diplom/cut_res/{Path(self.fileName).stem}-{data[1]}-{int(time[0])}:{int(time[1])}.wav", format="wav")
         print(len(tempDict))
         print(tempDict)
+        print('-'*12)
         if len(tempDict):
             begin = 0
             self.generatorWord = GeneratorAudio(speaker=self.fileName)
@@ -104,10 +125,11 @@ class ParallelFind:
                     self.dictionaryReplacement[name] = self.dictionaryReplacement[name] + (self.average_dBFS_original - average_dBFS_new)
                     print(self.dictionaryReplacement[name].dBFS)
                 s = self.audio.audioData[begin:time[0]]
-                if begin == 0:
-                    newAudio = s
-                else:
-                    newAudio += s
+                # if begin == 0:
+                #     newAudio = s
+                # else:
+                #     newAudio += s
+                newAudio += s
 
                 newAudio += self.dictionaryReplacement[name]
 
@@ -126,11 +148,11 @@ class ParallelFind:
 
 
 if __name__=='__main__':
-    # for i in ['1', '2', '3', '8', '9']:
-    #     print(i)
-    #     proga = ParallelFind(f'/home/dasha/python_diplom/wav/user_v.{i}.wav')
-    #     proga.findAndReplaceWords()
-    #     del proga
+    for i in range(19, 20):
+        print(i)
+        proga = ParallelFind(f'/home/dasha/python_diplom/wav/user_v.{str(i)}.ogg')
+        proga.findAndReplaceWords()
+        del proga
 
-    proga = ParallelFind(f'/home/dasha/python_diplom/wav/cringe_1.wav')
-    proga.findAndReplaceWords()
+    # proga = ParallelFind(f'/home/dasha/python_diplom/wav/{nameFile}.wav')
+    # proga.findAndReplaceWords()
